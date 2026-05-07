@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tiki Toko — Barang Bekas Berkualitas</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>🏷️ Tiki Toko</h1>
+        <p>Barang bekas berkualitas, harga bersahabat</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h2>Pindahan? Yuk borong!</h2>
+    <p>Semua barang dijual murah karena mau pindah kota</p>
+    <span class="badge">📦 Kondisi terawat · Nego santai</span>
+  </section>
+
+  <div class="controls">
+    <input
+      class="search-box"
+      type="search"
+      id="searchInput"
+      placeholder="🔍 Cari produk..."
+    />
+    <select class="filter-select" id="sortSelect">
+      <option value="default">Urutan default</option>
+      <option value="price-asc">Harga: Termurah</option>
+      <option value="price-desc">Harga: Termahal</option>
+    </select>
+  </div>
+
+  <div class="product-count" id="productCount"></div>
+
+  <div class="grid" id="productGrid"></div>
+
+  <!-- Modal detail produk -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <footer>
+    <p>© 2025 Tiki Toko · Hubungi via WhatsApp untuk tanya &amp; nego</p>
+  </footer>
+
+  <script src="products.js"></script>
+  <script>
+    function formatPrice(price) {
+      return "Rp " + price.toLocaleString("id-ID");
+    }
+
+    function buildWaLink(product) {
+      const text = encodeURIComponent(
+        `Halo, saya tertarik dengan *${product.name}* (${formatPrice(product.price)}). Apakah masih tersedia?`
+      );
+      return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
+    }
+
+    function renderGrid(list) {
+      const grid = document.getElementById("productGrid");
+      const count = document.getElementById("productCount");
+
+      count.textContent = `Menampilkan ${list.length} produk`;
+
+      if (list.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <div style="font-size:3rem">🔍</div>
+            <p>Produk tidak ditemukan.</p>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = list.map((p) => {
+        const imgTag = p.image
+          ? `<img class="card-img" src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          : "";
+        const placeholder = `<div class="card-img-placeholder" ${p.image ? 'style="display:none"' : ""}>📦</div>`;
+
+        return `
+          <div class="card" onclick="openModal(${p.id})">
+            ${imgTag}
+            ${placeholder}
+            <div class="card-body">
+              <div class="card-name">${p.name}</div>
+              <div class="card-price">${formatPrice(p.price)}</div>
+              <div class="card-condition">${p.condition}</div>
+              <a class="btn-wa" href="${buildWaLink(p)}" target="_blank" rel="noopener"
+                onclick="event.stopPropagation()">
+                💬 Chat WA
+              </a>
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function getFiltered() {
+      const query = document.getElementById("searchInput").value.toLowerCase().trim();
+      const sort = document.getElementById("sortSelect").value;
+
+      let list = products.filter((p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.description.toLowerCase().includes(query)
+      );
+
+      if (sort === "price-asc") list.sort((a, b) => a.price - b.price);
+      if (sort === "price-desc") list.sort((a, b) => b.price - a.price);
+
+      return list;
+    }
+
+    function openModal(id) {
+      const p = products.find((x) => x.id === id);
+      if (!p) return;
+
+      const imgTag = p.image
+        ? `<img class="modal-img" src="${p.image}" alt="${p.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        : "";
+      const placeholder = `<div class="modal-img-placeholder" ${p.image ? 'style="display:none"' : ""}>📦</div>`;
+
+      document.getElementById("modalContent").innerHTML = `
+        ${imgTag}
+        ${placeholder}
+        <div class="modal-body">
+          <div class="modal-name">${p.name}</div>
+          <div class="modal-price">${formatPrice(p.price)}</div>
+          <div class="modal-condition">${p.condition}</div>
+          <div class="modal-desc">${p.description}</div>
+          <div class="modal-actions">
+            <a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener">
+              💬 Chat WhatsApp
+            </a>
+            <button class="btn-close" onclick="document.getElementById('modalOverlay').classList.remove('active')">
+              Tutup
+            </button>
+          </div>
+        </div>`;
+
+      document.getElementById("modalOverlay").classList.add("active");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeModal(event) {
+      if (event.target === document.getElementById("modalOverlay")) {
+        document.getElementById("modalOverlay").classList.remove("active");
+        document.body.style.overflow = "";
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        document.getElementById("modalOverlay").classList.remove("active");
+        document.body.style.overflow = "";
+      }
+    });
+
+    document.getElementById("searchInput").addEventListener("input", () => renderGrid(getFiltered()));
+    document.getElementById("sortSelect").addEventListener("change", () => renderGrid(getFiltered()));
+
+    renderGrid(getFiltered());
+  </script>
+</body>
+</html>
