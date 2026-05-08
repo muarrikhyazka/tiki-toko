@@ -10,16 +10,12 @@
 
   <header>
     <div class="header-inner">
-      <div>
-        <h1>🏷️ Tiki Toko</h1>
-        <p>Barang bekas berkualitas, harga bersahabat</p>
-      </div>
+      <h1>🏷️ Tiki Toko</h1>
     </div>
   </header>
 
   <section class="hero">
-    <h2>Pindahan? Yuk borong!</h2>
-    <p>Semua barang dijual murah karena mau pindah kota</p>
+    <h2>Barang Bekas Berkualitas,<br>Harga Bersahabat</h2>
     <span class="badge">📦 Kondisi terawat · Nego santai</span>
   </section>
 
@@ -63,6 +59,41 @@
       return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
     }
 
+    function buildCarousel(p, idPrefix) {
+      const hasImages = p.images && p.images.length > 0;
+      if (!hasImages) {
+        return `<div class="carousel-placeholder">📦</div>`;
+      }
+
+      const slides = p.images.map((img) =>
+        `<img class="carousel-slide" src="${p.imageFolder}/${img}" alt="${p.name}" loading="lazy">`
+      ).join("");
+
+      const dots = p.images.length > 1
+        ? `<div class="carousel-dots">${p.images.map((_, i) =>
+            `<span class="dot${i === 0 ? " active" : ""}"></span>`
+          ).join("")}</div>`
+        : "";
+
+      return `
+        <div class="carousel" data-carousel-id="${idPrefix}-${p.id}">
+          <div class="carousel-track">${slides}</div>
+          ${dots}
+        </div>`;
+    }
+
+    function initCarousels() {
+      document.querySelectorAll(".carousel").forEach((carousel) => {
+        const track = carousel.querySelector(".carousel-track");
+        const dots = carousel.querySelectorAll(".dot");
+        if (!track || dots.length === 0) return;
+        track.addEventListener("scroll", () => {
+          const idx = Math.round(track.scrollLeft / track.offsetWidth);
+          dots.forEach((d, i) => d.classList.toggle("active", i === idx));
+        }, { passive: true });
+      });
+    }
+
     function renderGrid(list) {
       const grid = document.getElementById("productGrid");
       const count = document.getElementById("productCount");
@@ -79,19 +110,21 @@
       }
 
       grid.innerHTML = list.map((p) => {
-        const imgTag = p.image
-          ? `<img class="card-img" src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        const ecomLink = p.ecommerceUrl
+          ? `<a class="card-ecom" href="${p.ecommerceUrl}" target="_blank" rel="noopener"
+              onclick="event.stopPropagation()">
+              Harga baru: ${formatPrice(p.ecommercePrice)} →
+            </a>`
           : "";
-        const placeholder = `<div class="card-img-placeholder" ${p.image ? 'style="display:none"' : ""}>📦</div>`;
 
         return `
           <div class="card" onclick="openModal(${p.id})">
-            ${imgTag}
-            ${placeholder}
+            ${buildCarousel(p, "card")}
             <div class="card-body">
               <div class="card-name">${p.name}</div>
               <div class="card-price">${formatPrice(p.price)}</div>
-              <div class="card-condition">${p.condition}</div>
+              <div class="card-desc">${p.description}</div>
+              ${ecomLink}
               <a class="btn-wa" href="${buildWaLink(p)}" target="_blank" rel="noopener"
                 onclick="event.stopPropagation()">
                 💬 Chat WA
@@ -99,6 +132,8 @@
             </div>
           </div>`;
       }).join("");
+
+      initCarousels();
     }
 
     function getFiltered() {
@@ -120,24 +155,24 @@
       const p = products.find((x) => x.id === id);
       if (!p) return;
 
-      const imgTag = p.image
-        ? `<img class="modal-img" src="${p.image}" alt="${p.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      const ecomLink = p.ecommerceUrl
+        ? `<a class="modal-ecom" href="${p.ecommerceUrl}" target="_blank" rel="noopener">
+            🔗 Harga baru: ${formatPrice(p.ecommercePrice)} (lihat di toko online)
+          </a>`
         : "";
-      const placeholder = `<div class="modal-img-placeholder" ${p.image ? 'style="display:none"' : ""}>📦</div>`;
 
       document.getElementById("modalContent").innerHTML = `
-        ${imgTag}
-        ${placeholder}
+        ${buildCarousel(p, "modal")}
         <div class="modal-body">
           <div class="modal-name">${p.name}</div>
           <div class="modal-price">${formatPrice(p.price)}</div>
-          <div class="modal-condition">${p.condition}</div>
+          ${ecomLink}
           <div class="modal-desc">${p.description}</div>
           <div class="modal-actions">
             <a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener">
               💬 Chat WhatsApp
             </a>
-            <button class="btn-close" onclick="document.getElementById('modalOverlay').classList.remove('active')">
+            <button class="btn-close" onclick="document.getElementById('modalOverlay').classList.remove('active');document.body.style.overflow=''">
               Tutup
             </button>
           </div>
@@ -145,6 +180,7 @@
 
       document.getElementById("modalOverlay").classList.add("active");
       document.body.style.overflow = "hidden";
+      initCarousels();
     }
 
     function closeModal(event) {
