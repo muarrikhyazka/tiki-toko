@@ -34,10 +34,7 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.15);
     }
 
-    .login-card .logo {
-      font-size: 2.5rem;
-      margin-bottom: 6px;
-    }
+    .login-card .logo { font-size: 2.5rem; margin-bottom: 6px; }
 
     .login-card h1 {
       font-size: 1.4rem;
@@ -63,9 +60,7 @@
       transition: border-color 0.2s;
     }
 
-    .login-card input:focus {
-      border-color: #FF4081;
-    }
+    .login-card input:focus { border-color: #FF4081; }
 
     .btn-login {
       width: 100%;
@@ -81,13 +76,7 @@
     }
 
     .btn-login:hover { background: #e0356e; }
-
-    .login-error {
-      color: #e53935;
-      font-size: 0.82rem;
-      margin-top: 10px;
-      min-height: 18px;
-    }
+    .login-error { color: #e53935; font-size: 0.82rem; margin-top: 10px; min-height: 18px; }
 
     /* ── DASHBOARD ── */
     .dash-header {
@@ -101,20 +90,26 @@
       top: 0;
       z-index: 10;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      gap: 12px;
     }
 
     .dash-header h1 { font-size: 1.1rem; font-weight: 700; }
-    .dash-header span { font-size: 0.8rem; opacity: 0.85; }
+    .dash-header .subtitle { font-size: 0.78rem; opacity: 0.85; margin-top: 2px; }
 
-    .btn-logout {
+    .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .btn-header {
       background: rgba(255,255,255,0.2);
       color: white;
       border: 1px solid rgba(255,255,255,0.4);
-      padding: 6px 14px;
+      padding: 6px 13px;
       border-radius: 8px;
       font-size: 0.82rem;
       cursor: pointer;
+      transition: background 0.15s;
     }
+
+    .btn-header:hover { background: rgba(255,255,255,0.35); }
 
     .dash-body {
       max-width: 900px;
@@ -138,7 +133,7 @@
     }
 
     .stat-card .label {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: #aaa;
       margin-bottom: 6px;
       text-transform: uppercase;
@@ -152,11 +147,7 @@
       line-height: 1;
     }
 
-    .stat-card .sub {
-      font-size: 0.78rem;
-      color: #888;
-      margin-top: 4px;
-    }
+    .stat-card .sub { font-size: 0.78rem; color: #888; margin-top: 4px; }
 
     /* Table */
     .table-wrap {
@@ -172,12 +163,12 @@
       justify-content: space-between;
       padding: 16px 20px;
       border-bottom: 1px solid #f0f0f0;
+      gap: 10px;
     }
 
-    .table-head h2 {
-      font-size: 0.95rem;
-      font-weight: 700;
-    }
+    .table-head h2 { font-size: 0.95rem; font-weight: 700; }
+
+    .updated-at { font-size: 0.75rem; color: #bbb; flex: 1; }
 
     .btn-reset {
       background: none;
@@ -188,20 +179,18 @@
       font-size: 0.78rem;
       cursor: pointer;
       transition: border-color 0.2s, color 0.2s;
+      flex-shrink: 0;
     }
 
     .btn-reset:hover { border-color: #e53935; color: #e53935; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
+    table { width: 100%; border-collapse: collapse; }
 
     thead th {
       background: #fafafa;
       text-align: left;
       padding: 11px 16px;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       color: #999;
       font-weight: 600;
       text-transform: uppercase;
@@ -209,91 +198,57 @@
       border-bottom: 1px solid #f0f0f0;
     }
 
-    tbody tr {
-      border-bottom: 1px solid #f8f8f8;
-      transition: background 0.15s;
-    }
-
+    tbody tr { border-bottom: 1px solid #f8f8f8; transition: background 0.15s; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: #fef6f9; }
 
-    tbody td {
-      padding: 13px 16px;
-      font-size: 0.88rem;
-      vertical-align: middle;
-    }
+    tbody td { padding: 12px 16px; font-size: 0.87rem; vertical-align: middle; }
 
-    .td-rank {
-      color: #ccc;
-      font-weight: 700;
-      font-size: 0.8rem;
-      width: 32px;
-    }
-
+    .td-rank { color: #ccc; font-weight: 700; font-size: 0.8rem; width: 30px; }
     .td-name { font-weight: 600; }
-    .td-brand { color: #aaa; font-size: 0.78rem; }
+    .td-brand { color: #aaa; font-size: 0.76rem; }
     .td-price { color: #FF4081; font-weight: 700; white-space: nowrap; }
-
-    .td-clicks {
-      font-weight: 700;
-      font-size: 1rem;
-    }
-
-    .td-clicks.zero { color: #ddd; }
+    .td-last  { color: #bbb; font-size: 0.75rem; white-space: nowrap; }
+    .td-clicks { font-weight: 700; font-size: 1rem; text-align: right; }
+    .td-clicks.zero    { color: #ddd; }
     .td-clicks.nonzero { color: #333; }
 
-    .bar-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .bar { height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; min-width: 50px; }
+    .bar-fill { height: 100%; background: #FF4081; border-radius: 3px; transition: width 0.5s ease; }
 
-    .bar {
-      flex: 1;
-      height: 6px;
-      background: #f0f0f0;
-      border-radius: 3px;
-      overflow: hidden;
-      min-width: 40px;
-    }
-
-    .bar-fill {
-      height: 100%;
-      background: #FF4081;
-      border-radius: 3px;
-      transition: width 0.4s ease;
-    }
-
-    .no-data {
+    /* States */
+    .state-box {
       text-align: center;
       padding: 50px 20px;
       color: #bbb;
     }
 
-    .no-data p { margin-top: 8px; font-size: 0.9rem; }
+    .state-box .icon { font-size: 2.5rem; }
+    .state-box p { margin-top: 10px; font-size: 0.9rem; line-height: 1.6; }
+    .state-box .err { color: #e53935; font-size: 0.82rem; margin-top: 6px; }
 
     /* Note */
     .note {
       margin-top: 20px;
       padding: 12px 16px;
-      background: #fff8e1;
-      border-left: 3px solid #ffc107;
+      background: #e8f5e9;
+      border-left: 3px solid #43a047;
       border-radius: 0 8px 8px 0;
       font-size: 0.8rem;
-      color: #7a6000;
-      line-height: 1.5;
+      color: #2e6b30;
+      line-height: 1.6;
     }
 
-    @media (max-width: 480px) {
+    @media (max-width: 540px) {
       .summary { grid-template-columns: repeat(2, 1fr); }
-      thead th:nth-child(4),
-      tbody td:nth-child(4) { display: none; }
+      .td-last, thead th:nth-child(4), tbody td:nth-child(4) { display: none; }
+      .dash-header { flex-wrap: wrap; }
     }
   </style>
 </head>
 <body>
 
-  <!-- LOGIN SCREEN -->
+  <!-- ── LOGIN ── -->
   <div id="loginScreen" class="login-wrap">
     <div class="login-card">
       <div class="logo">🏷️</div>
@@ -311,14 +266,17 @@
     </div>
   </div>
 
-  <!-- DASHBOARD SCREEN -->
+  <!-- ── DASHBOARD ── -->
   <div id="dashScreen" style="display:none">
     <div class="dash-header">
       <div>
         <h1>🏷️ Dashboard Tiki Toko</h1>
-        <span>Statistik klik tombol Chat WA</span>
+        <div class="subtitle">Statistik klik tombol Chat WA · Google Sheets</div>
       </div>
-      <button class="btn-logout" onclick="logout()">Keluar</button>
+      <div class="header-actions">
+        <button class="btn-header" onclick="loadDashboard()">↻ Refresh</button>
+        <button class="btn-header" onclick="logout()">Keluar</button>
+      </div>
     </div>
 
     <div class="dash-body">
@@ -327,29 +285,32 @@
       <div class="table-wrap">
         <div class="table-head">
           <h2>Klik per Produk</h2>
+          <span class="updated-at" id="updatedAt"></span>
           <button class="btn-reset" onclick="resetData()">Reset data</button>
         </div>
-        <div id="tableContainer"></div>
+        <div id="tableContainer">
+          <div class="state-box">
+            <div class="icon">⏳</div>
+            <p>Memuat data...</p>
+          </div>
+        </div>
       </div>
 
       <div class="note">
-        ⚠️ Data ini tersimpan di browser ini saja (localStorage). Klik dari perangkat atau browser lain tidak terekam di sini.
-        Untuk tracking semua pengunjung secara real-time, diperlukan integrasi layanan backend seperti Supabase atau Google Analytics.
+        ✅ Data tracking tersimpan di <strong>Google Sheets</strong> — klik dari semua pengunjung dan perangkat terekam secara real-time.
       </div>
     </div>
   </div>
 
+  <script src="config.js"></script>
   <script src="products.js"></script>
   <script>
-    // Ganti password di bawah ini
-    const DASHBOARD_PASSWORD = "tiki123";
-
     function login() {
-      const pw = document.getElementById("pwInput").value;
+      const pw  = document.getElementById("pwInput").value;
       const err = document.getElementById("loginError");
       if (pw === DASHBOARD_PASSWORD) {
         document.getElementById("loginScreen").style.display = "none";
-        document.getElementById("dashScreen").style.display = "block";
+        document.getElementById("dashScreen").style.display  = "block";
         loadDashboard();
       } else {
         err.textContent = "Password salah. Coba lagi.";
@@ -359,57 +320,108 @@
     }
 
     function logout() {
-      document.getElementById("dashScreen").style.display = "none";
+      document.getElementById("dashScreen").style.display  = "none";
       document.getElementById("loginScreen").style.display = "flex";
       document.getElementById("pwInput").value = "";
-      document.getElementById("loginError").textContent = "";
+      document.getElementById("loginError").textContent    = "";
     }
 
-    function formatPrice(price) {
-      return "Rp " + price.toLocaleString("id-ID");
+    function formatPrice(p) {
+      return "Rp " + p.toLocaleString("id-ID");
     }
 
-    function loadDashboard() {
-      const clicks = JSON.parse(localStorage.getItem("tt-clicks") || "{}");
+    function formatDate(iso) {
+      if (!iso) return "—";
+      return new Date(iso).toLocaleString("id-ID", {
+        day: "numeric", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+    }
 
-      // Build rows: merge product data with click counts
+    function showTableState(icon, msg, sub = "") {
+      document.getElementById("tableContainer").innerHTML = `
+        <div class="state-box">
+          <div class="icon">${icon}</div>
+          <p>${msg}</p>
+          ${sub ? `<p class="err">${sub}</p>` : ""}
+        </div>`;
+    }
+
+    async function loadDashboard() {
+      // Cek apakah URL sudah diisi
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE") {
+        showTableState("⚙️",
+          "APPS_SCRIPT_URL belum diisi.",
+          "Buka <strong>config.js</strong> dan isi dengan URL dari Google Apps Script."
+        );
+        document.getElementById("summary").innerHTML = "";
+        return;
+      }
+
+      showTableState("⏳", "Memuat data dari Google Sheets...");
+      document.getElementById("updatedAt").textContent = "";
+
+      let sheetsData = [];
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getData`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        sheetsData = await res.json();
+        if (sheetsData.error) throw new Error(sheetsData.error);
+      } catch (err) {
+        showTableState("⚠️",
+          "Gagal mengambil data dari Google Sheets.",
+          `Error: ${err.message}`
+        );
+        document.getElementById("summary").innerHTML = "";
+        return;
+      }
+
+      // Merge data Sheets dengan daftar produk di products.js
+      // Semua produk ditampilkan; yang belum pernah diklik = 0
+      const clickMap = {};
+      const lastClickMap = {};
+      sheetsData.forEach((row) => {
+        clickMap[row.productId]      = row.clicks;
+        lastClickMap[row.productId]  = row.lastClick;
+      });
+
       const rows = products.map((p) => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand || "",
-        price: p.price,
-        clicks: clicks[p.id] || 0,
+        id       : p.id,
+        name     : p.name,
+        brand    : p.brand || "",
+        price    : p.price,
+        clicks   : clickMap[p.id]     || 0,
+        lastClick: lastClickMap[p.id] || null,
       })).sort((a, b) => b.clicks - a.clicks);
 
-      const totalClicks = rows.reduce((sum, r) => sum + r.clicks, 0);
+      const total      = rows.reduce((s, r) => s + r.clicks, 0);
+      const active     = rows.filter((r) => r.clicks > 0).length;
       const topProduct = rows[0] && rows[0].clicks > 0 ? rows[0].name : "—";
-      const activeProducts = rows.filter((r) => r.clicks > 0).length;
-      const maxClicks = rows[0] ? rows[0].clicks : 1;
+      const maxClicks  = rows[0] ? rows[0].clicks : 1;
 
-      // Summary cards
+      // Summary
       document.getElementById("summary").innerHTML = `
         <div class="stat-card">
           <div class="label">Total Klik WA</div>
-          <div class="value">${totalClicks}</div>
+          <div class="value">${total}</div>
         </div>
         <div class="stat-card">
           <div class="label">Produk Diminati</div>
-          <div class="value">${activeProducts}</div>
+          <div class="value">${active}</div>
           <div class="sub">dari ${products.length} produk</div>
         </div>
         <div class="stat-card">
           <div class="label">Paling Diminati</div>
-          <div class="value" style="font-size:1rem;padding-top:4px">${topProduct}</div>
-        </div>
-      `;
+          <div class="value" style="font-size:0.95rem;padding-top:6px;line-height:1.3">${topProduct}</div>
+        </div>`;
+
+      // Timestamp refresh
+      document.getElementById("updatedAt").textContent =
+        "Diperbarui: " + new Date().toLocaleTimeString("id-ID");
 
       // Table
-      if (totalClicks === 0) {
-        document.getElementById("tableContainer").innerHTML = `
-          <div class="no-data">
-            <div style="font-size:2.5rem">📭</div>
-            <p>Belum ada klik yang terekam.</p>
-          </div>`;
+      if (total === 0) {
+        showTableState("📭", "Belum ada klik yang terekam.", "Bagikan link toko ke pembeli dan klik WA akan muncul di sini.");
         return;
       }
 
@@ -422,12 +434,11 @@
           </td>
           <td class="td-price">${formatPrice(r.price)}</td>
           <td>
-            <div class="bar-wrap">
-              <div class="bar">
-                <div class="bar-fill" style="width:${maxClicks > 0 ? (r.clicks / maxClicks * 100) : 0}%"></div>
-              </div>
+            <div class="bar">
+              <div class="bar-fill" style="width:${maxClicks > 0 ? (r.clicks / maxClicks * 100).toFixed(1) : 0}%"></div>
             </div>
           </td>
+          <td class="td-last">${formatDate(r.lastClick)}</td>
           <td class="td-clicks ${r.clicks > 0 ? "nonzero" : "zero"}">${r.clicks}</td>
         </tr>`
       ).join("");
@@ -439,18 +450,23 @@
               <th>#</th>
               <th>Produk</th>
               <th>Harga</th>
-              <th>Grafik</th>
-              <th>Klik</th>
+              <th style="min-width:80px">Grafik</th>
+              <th>Klik Terakhir</th>
+              <th style="text-align:right">Klik</th>
             </tr>
           </thead>
           <tbody>${tbody}</tbody>
         </table>`;
     }
 
-    function resetData() {
-      if (!confirm("Reset semua data klik? Tindakan ini tidak bisa dibatalkan.")) return;
-      localStorage.removeItem("tt-clicks");
-      loadDashboard();
+    async function resetData() {
+      if (!confirm("Reset semua data klik di Google Sheets?\nTindakan ini tidak bisa dibatalkan.")) return;
+      try {
+        await fetch(`${APPS_SCRIPT_URL}?action=reset`);
+        await loadDashboard();
+      } catch (err) {
+        alert("Gagal reset: " + err.message);
+      }
     }
   </script>
 </body>

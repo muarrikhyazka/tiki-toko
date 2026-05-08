@@ -1,0 +1,115 @@
+/**
+ * TIKI TOKO — Google Apps Script (Tracker Klik WA)
+ *
+ * ═══════════════════════════════════════════════════
+ *  CARA SETUP (lakukan sekali saja):
+ * ═══════════════════════════════════════════════════
+ *
+ *  1. Buka Google Sheets → buat spreadsheet baru
+ *     Rename tab pertama menjadi persis: Clicks
+ *     Isi baris 1 (header):
+ *       A1: product_id  |  B1: product_name  |  C1: click_count  |  D1: last_click
+ *
+ *  2. Di Google Sheets: Extensions → Apps Script
+ *     Hapus semua kode yang ada
+ *     Paste SELURUH kode di file ini (mulai dari "const SHEET_NAME" ke bawah)
+ *     Simpan dengan nama project: Tiki Toko Tracker  (Ctrl+S)
+ *
+ *  3. Klik "Deploy" → "New deployment"
+ *       Type          : Web App
+ *       Execute as    : Me
+ *       Who has access: Anyone
+ *     Klik "Deploy" → klik "Authorize access" jika muncul popup
+ *
+ *  4. Copy URL yang muncul (bentuknya: https://script.google.com/macros/s/.../exec)
+ *
+ *  5. Paste URL tersebut ke  config.js  →  APPS_SCRIPT_URL
+ *
+ * ⚠  Setiap kali kamu mengedit kode ini, buat deployment BARU
+ *    (Deploy → New deployment), jangan edit yang lama.
+ * ═══════════════════════════════════════════════════
+ */
+
+// ── PASTE KODE DI BAWAH INI KE APPS SCRIPT EDITOR ──────────
+
+const SHEET_NAME = "Clicks";
+
+function doGet(e) {
+  const action = (e && e.parameter && e.parameter.action) || "ping";
+
+  try {
+    const sheet = SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(SHEET_NAME);
+
+    if (!sheet) {
+      return jsonOut({
+        error: `Sheet "${SHEET_NAME}" tidak ditemukan. Buat tab dengan nama persis "Clicks".`
+      });
+    }
+
+    if (action === "click") {
+      const id   = parseInt(e.parameter.id)       || 0;
+      const name = (e.parameter.name || "").trim();
+      if (id > 0) recordClick(sheet, id, name);
+      return jsonOut({ success: true });
+    }
+
+    if (action === "getData") {
+      return jsonOut(getAllData(sheet));
+    }
+
+    if (action === "reset") {
+      clearData(sheet);
+      return jsonOut({ success: true });
+    }
+
+    // ping / health check
+    return jsonOut({ status: "ok", sheet: SHEET_NAME });
+
+  } catch (err) {
+    return jsonOut({ error: err.message });
+  }
+}
+
+function recordClick(sheet, productId, productName) {
+  const values  = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < values.length; i++) {
+    if (Number(values[i][0]) === productId) {
+      sheet.getRange(i + 1, 3).setValue(Number(values[i][2]) + 1);
+      sheet.getRange(i + 1, 4).setValue(new Date());
+      return;
+    }
+  }
+  // Produk baru → tambah baris
+  sheet.appendRow([productId, productName, 1, new Date()]);
+}
+
+function getAllData(sheet) {
+  const values = sheet.getDataRange().getValues();
+  const result = [];
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row[0]) continue;
+    result.push({
+      productId  : Number(row[0]),
+      productName: String(row[1] || ""),
+      clicks     : Number(row[2] || 0),
+      lastClick  : row[3] instanceof Date ? row[3].toISOString() : null,
+    });
+  }
+  return result;
+}
+
+function clearData(sheet) {
+  const last = sheet.getLastRow();
+  if (last > 1) sheet.getRange(2, 1, last - 1, 4).clearContent();
+}
+
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}

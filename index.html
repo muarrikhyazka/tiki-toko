@@ -47,6 +47,7 @@
     <p>© 2025 Tiki Toko · Hubungi via WhatsApp untuk tanya &amp; nego</p>
   </footer>
 
+  <script src="config.js"></script>
   <script src="products.js"></script>
   <script>
     let isListView = false;
@@ -71,11 +72,12 @@
     }
 
     function trackWaClick(productId) {
-      try {
-        const data = JSON.parse(localStorage.getItem("tt-clicks") || "{}");
-        data[productId] = (data[productId] || 0) + 1;
-        localStorage.setItem("tt-clicks", JSON.stringify(data));
-      } catch (e) {}
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE") return;
+      const product = products.find((p) => p.id === productId);
+      const name    = product ? encodeURIComponent(product.name) : "";
+      const url     = `${APPS_SCRIPT_URL}?action=click&id=${productId}&name=${name}`;
+      // mode no-cors: request tetap terkirim ke server, kita tidak perlu baca responnya
+      fetch(url, { mode: "no-cors" }).catch(() => {});
     }
 
     function buildCarousel(p, idPrefix) {
