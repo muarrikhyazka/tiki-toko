@@ -270,9 +270,11 @@
             </a>`;
         return `
           <div class="card${isSold ? " sold" : ""}" onclick="openModal(${p.id})">
-            ${buildCarousel(p, "card")}
-            <div class="card-body">
+            <div style="position:relative">
+              ${buildCarousel(p, "card")}
               ${isSold ? `<span class="sold-badge">Terjual</span>` : ""}
+            </div>
+            <div class="card-body">
               <div class="card-name">${p.name}</div>
               ${brand}
               <div class="card-price">${formatPrice(p.price)}</div>
@@ -317,9 +319,11 @@
         : `<a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener"
             onclick="trackWaClick(${p.id})">💬 Chat WhatsApp</a>`;
       document.getElementById("modalContent").innerHTML = `
-        ${buildCarousel(p, "modal")}
-        <div class="modal-body">
+        <div style="position:relative">
+          ${buildCarousel(p, "modal")}
           ${isSold ? `<span class="sold-badge">Terjual</span>` : ""}
+        </div>
+        <div class="modal-body">
           <div class="modal-name">${p.name}</div>
           ${brand}
           <div class="modal-price">${formatPrice(p.price)}</div>
