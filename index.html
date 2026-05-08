@@ -20,12 +20,7 @@
   </section>
 
   <div class="controls">
-    <input
-      class="search-box"
-      type="search"
-      id="searchInput"
-      placeholder="🔍 Cari produk..."
-    />
+    <input class="search-box" type="search" id="searchInput" placeholder="🔍 Cari produk..." />
     <select class="filter-select" id="sortSelect">
       <option value="default">Urutan default</option>
       <option value="price-asc">Harga: Termurah</option>
@@ -36,9 +31,13 @@
 
   <div class="product-count" id="productCount"></div>
 
-  <div class="grid" id="productGrid"></div>
+  <div class="grid" id="productGrid">
+    <div class="empty-state">
+      <div style="font-size:2rem">⏳</div>
+      <p>Memuat produk...</p>
+    </div>
+  </div>
 
-  <!-- Modal detail produk -->
   <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
     <div class="modal" id="modalContent"></div>
   </div>
@@ -48,110 +47,198 @@
   </footer>
 
   <script src="config.js"></script>
-  <script src="products.js"></script>
   <script>
+    // ── State ─────────────────────────────────────────────────
+    let products   = [];
     let isListView = false;
+    const MAX_IMG  = 6; // coba muat 1.jpg s/d MAX_IMG.jpg per produk
 
-    function formatPrice(price) {
-      return "Rp " + price.toLocaleString("id-ID");
+    // ── CSV: Fetch & Parse ────────────────────────────────────
+    async function fetchProducts() {
+      if (!SHEET_CSV_URL || SHEET_CSV_URL === "YOUR_CSV_URL_HERE") {
+        throw new Error("SHEET_CSV_URL belum diisi di config.js");
+      }
+      const resp = await fetch(SHEET_CSV_URL);
+      if (!resp.ok) throw new Error(`Gagal memuat data (HTTP ${resp.status})`);
+      return csvToProducts(parseCSV(await resp.text()));
     }
 
-    function buildWaLink(product) {
+    function parseCSV(text) {
+      const rows = [];
+      let row = [], field = "", inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i], n = text[i + 1];
+        if (inQ) {
+          if (c === '"' && n === '"') { field += '"'; i++; }
+          else if (c === '"') { inQ = false; }
+          else { field += c; }
+        } else {
+          if      (c === '"')  { inQ = true; }
+          else if (c === ',')  { row.push(field); field = ""; }
+          else if (c === '\r' && n === '\n') { row.push(field); rows.push(row); row = []; field = ""; i++; }
+          else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+          else { field += c; }
+        }
+      }
+      if (field !== "" || row.length > 0) { row.push(field); rows.push(row); }
+      return rows;
+    }
+
+    function csvToProducts(rows) {
+      // Baris 0 = judul sheet, baris 1 = header kolom, baris 2+ = data
+      if (rows.length < 3) return [];
+      const headers = rows[1].map(h => h.trim().toLowerCase());
+      const col = name => headers.indexOf(name.toLowerCase());
+
+      const iNo    = col("no");
+      const iName  = col("nama barang");
+      const iTreat = col("treatment");
+      const iBrand = col("merk/tipe");
+      const iDesc  = col("deskripsi");
+      const iLink  = col("link");
+      const iPrice = col("harga");
+
+      return rows.slice(2)
+        .filter(r => {
+          const name  = (r[iName]  || "").trim();
+          const treat = (r[iTreat] || "").trim().toLowerCase();
+          return name && treat === "dijual";
+        })
+        .map(r => {
+          const no = (r[iNo] || "").trim();
+          return {
+            id           : parseInt(no) || 0,
+            name         : (r[iName]  || "").trim(),
+            brand        : (r[iBrand] || "").trim(),
+            description  : (r[iDesc]  || "").trim(),
+            price        : parsePrice(r[iPrice]),
+            ecommerceLinks: parseLinks(r[iLink]),
+            imageFolder  : `images/${no}`,
+          };
+        });
+    }
+
+    const parsePrice = s => parseInt((s || "").replace(/[^0-9]/g, "")) || 0;
+    const parseLinks = s => (s || "").split("\n").map(x => x.trim()).filter(x => /^https?:\/\//.test(x));
+
+    // ── Formatting ────────────────────────────────────────────
+    const formatPrice = p => "Rp " + p.toLocaleString("id-ID");
+
+    function buildWaLink(p) {
       const text = encodeURIComponent(
-        `Halo, saya tertarik dengan *${product.name}* (${formatPrice(product.price)}). Apakah masih tersedia?`
+        `Halo, saya tertarik dengan *${p.name}* (${formatPrice(p.price)}). Apakah masih tersedia?`
       );
       return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
     }
 
-    function getEcomName(url) {
-      try {
-        return new URL(url).hostname.replace(/^www\./, "");
-      } catch {
-        return "Lihat";
-      }
-    }
+    const getEcomName = url => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "Lihat"; } };
 
+    // ── Click Tracking ────────────────────────────────────────
     function trackWaClick(productId) {
       if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE") return;
-      const product = products.find((p) => p.id === productId);
-      const name    = product ? encodeURIComponent(product.name) : "";
-      const url     = `${APPS_SCRIPT_URL}?action=click&id=${productId}&name=${name}`;
-      // mode no-cors: request tetap terkirim ke server, kita tidak perlu baca responnya
-      fetch(url, { mode: "no-cors" }).catch(() => {});
+      const p    = products.find(x => x.id === productId);
+      const name = p ? encodeURIComponent(p.name) : "";
+      fetch(`${APPS_SCRIPT_URL}?action=click&id=${productId}&name=${name}`, { mode: "no-cors" }).catch(() => {});
     }
 
-    function buildCarousel(p, idPrefix) {
-      const hasImages = p.images && p.images.length > 0;
-      if (!hasImages) {
-        return `<div class="carousel-placeholder">📦</div>`;
-      }
-      const slides = p.images.map((img) =>
-        `<img class="carousel-slide" src="${p.imageFolder}/${img}" alt="${p.name}" loading="lazy">`
+    // ── Carousel ──────────────────────────────────────────────
+    // Coba muat 1.jpg s/d MAX_IMG.jpg; gambar yang 404 dihapus otomatis.
+    function buildCarousel(p, prefix) {
+      const slides = Array.from({ length: MAX_IMG }, (_, i) =>
+        `<img class="carousel-slide" src="${p.imageFolder}/${i + 1}.jpg"
+             alt="${p.name}" loading="lazy" onerror="imgErr(this)">`
       ).join("");
-      const dots = p.images.length > 1
-        ? `<div class="carousel-dots">${p.images.map((_, i) =>
-            `<span class="dot${i === 0 ? " active" : ""}"></span>`
-          ).join("")}</div>`
-        : "";
       return `
-        <div class="carousel" data-id="${idPrefix}-${p.id}">
+        <div class="carousel" id="car-${prefix}-${p.id}">
           <div class="carousel-track">${slides}</div>
-          ${dots}
+          <div class="carousel-dots"></div>
         </div>`;
     }
 
-    function buildCardEcomLinks(p) {
-      if (!p.ecommerceLinks || p.ecommerceLinks.length === 0) return "";
-      const parts = p.ecommerceLinks.map((url, i) => {
-        const sep = i < p.ecommerceLinks.length - 1 ? `<span class="card-ecom-sep">·</span>` : "";
-        return `<a class="card-ecom-link" href="${url}" target="_blank" rel="noopener"
-          onclick="event.stopPropagation()">${getEcomName(url)} ↗</a>${sep}`;
-      }).join("");
-      return `
-        <div class="card-ecom-links">
-          <span class="card-ecom-label">Cek harga baru:</span>
-          <div>${parts}</div>
-        </div>`;
-    }
+    // global → dapat dipanggil dari onerror atribut
+    window.imgErr = function (img) {
+      const track    = img.closest(".carousel-track");
+      const carousel = img.closest(".carousel");
+      if (!track) return;
+      img.remove();
+      rebuildDots(carousel);
+    };
 
-    function buildModalEcomLinks(p) {
-      if (!p.ecommerceLinks || p.ecommerceLinks.length === 0) return "";
-      const buttons = p.ecommerceLinks.map((url) =>
-        `<a class="modal-ecom-btn" href="${url}" target="_blank" rel="noopener">${getEcomName(url)} ↗</a>`
-      ).join("");
-      return `<div class="modal-ecom-links">${buttons}</div>`;
+    function rebuildDots(carousel) {
+      const track  = carousel.querySelector(".carousel-track");
+      const dotsEl = carousel.querySelector(".carousel-dots");
+      if (!track || !dotsEl) return;
+      const imgs = track.querySelectorAll("img");
+      if (imgs.length === 0) {
+        track.innerHTML  = '<div class="carousel-placeholder">📦</div>';
+        dotsEl.innerHTML = "";
+      } else if (imgs.length === 1) {
+        dotsEl.innerHTML = "";
+      } else {
+        const cur = track.offsetWidth
+          ? Math.round(track.scrollLeft / track.offsetWidth) : 0;
+        dotsEl.innerHTML = Array.from(imgs, (_, i) =>
+          `<span class="dot${i === cur ? " active" : ""}"></span>`
+        ).join("");
+      }
     }
 
     function initCarousels() {
-      document.querySelectorAll(".carousel").forEach((carousel) => {
-        const track = carousel.querySelector(".carousel-track");
-        const dots = carousel.querySelectorAll(".dot");
-        if (!track || dots.length === 0) return;
-        const fresh = track.cloneNode(true);
-        track.parentNode.replaceChild(fresh, track);
-        fresh.addEventListener("scroll", () => {
-          const idx = Math.round(fresh.scrollLeft / fresh.offsetWidth);
+      document.querySelectorAll(".carousel").forEach(carousel => {
+        const track  = carousel.querySelector(".carousel-track");
+        const dotsEl = carousel.querySelector(".carousel-dots");
+        if (!track) return;
+
+        // Build dots once first valid image loads
+        const first = track.querySelector("img");
+        if (first) {
+          const build = () => rebuildDots(carousel);
+          if (first.complete && first.naturalWidth > 0) build();
+          else first.addEventListener("load", build, { once: true });
+        }
+
+        // Scroll → sync active dot
+        track.addEventListener("scroll", () => {
+          const dots = dotsEl.querySelectorAll(".dot");
+          if (!dots.length || !track.offsetWidth) return;
+          const idx = Math.round(track.scrollLeft / track.offsetWidth);
           dots.forEach((d, i) => d.classList.toggle("active", i === idx));
         }, { passive: true });
       });
     }
 
+    // ── Ecommerce Links ───────────────────────────────────────
+    function buildCardEcomLinks(p) {
+      if (!p.ecommerceLinks?.length) return "";
+      const parts = p.ecommerceLinks.map((url, i) => {
+        const sep = i < p.ecommerceLinks.length - 1 ? `<span class="card-ecom-sep">·</span>` : "";
+        return `<a class="card-ecom-link" href="${url}" target="_blank" rel="noopener"
+          onclick="event.stopPropagation()">${getEcomName(url)} ↗</a>${sep}`;
+      }).join("");
+      return `<div class="card-ecom-links"><span class="card-ecom-label">Cek harga baru:</span><div>${parts}</div></div>`;
+    }
+
+    function buildModalEcomLinks(p) {
+      if (!p.ecommerceLinks?.length) return "";
+      return `<div class="modal-ecom-links">${p.ecommerceLinks.map(url =>
+        `<a class="modal-ecom-btn" href="${url}" target="_blank" rel="noopener">${getEcomName(url)} ↗</a>`
+      ).join("")}</div>`;
+    }
+
+    // ── Render ────────────────────────────────────────────────
     function renderGrid(list) {
-      const grid = document.getElementById("productGrid");
+      const grid  = document.getElementById("productGrid");
       const count = document.getElementById("productCount");
       count.textContent = `Menampilkan ${list.length} produk`;
 
-      if (list.length === 0) {
-        grid.innerHTML = `
-          <div class="empty-state">
-            <div style="font-size:3rem">🔍</div>
-            <p>Produk tidak ditemukan.</p>
-          </div>`;
+      if (!list.length) {
+        grid.innerHTML = `<div class="empty-state"><div style="font-size:3rem">🔍</div><p>Produk tidak ditemukan.</p></div>`;
         return;
       }
 
-      grid.innerHTML = list.map((p) => {
+      grid.innerHTML = list.map(p => {
         const brand = p.brand ? `<div class="card-brand">${p.brand}</div>` : "";
+        const desc  = p.description.replace(/\n/g, "<br>");
         return `
           <div class="card" onclick="openModal(${p.id})">
             ${buildCarousel(p, "card")}
@@ -159,7 +246,7 @@
               <div class="card-name">${p.name}</div>
               ${brand}
               <div class="card-price">${formatPrice(p.price)}</div>
-              <div class="card-desc">${p.description}</div>
+              <div class="card-desc">${desc}</div>
               ${buildCardEcomLinks(p)}
               <a class="btn-wa" href="${buildWaLink(p)}" target="_blank" rel="noopener"
                 onclick="event.stopPropagation(); trackWaClick(${p.id})">
@@ -172,30 +259,30 @@
       initCarousels();
     }
 
-    function toggleView() {
-      isListView = !isListView;
-      document.getElementById("productGrid").classList.toggle("list-view", isListView);
-      const btn = document.getElementById("viewToggle");
-      btn.textContent = isListView ? "⊞" : "☰";
-    }
-
     function getFiltered() {
-      const query = document.getElementById("searchInput").value.toLowerCase().trim();
+      const q    = document.getElementById("searchInput").value.toLowerCase().trim();
       const sort = document.getElementById("sortSelect").value;
-      let list = products.filter((p) =>
-        p.name.toLowerCase().includes(query) ||
-        (p.brand || "").toLowerCase().includes(query) ||
-        p.description.toLowerCase().includes(query)
+      let list   = products.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.brand || "").toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q)
       );
-      if (sort === "price-asc") list.sort((a, b) => a.price - b.price);
+      if (sort === "price-asc")  list.sort((a, b) => a.price - b.price);
       if (sort === "price-desc") list.sort((a, b) => b.price - a.price);
       return list;
     }
 
+    function toggleView() {
+      isListView = !isListView;
+      document.getElementById("productGrid").classList.toggle("list-view", isListView);
+      document.getElementById("viewToggle").textContent = isListView ? "⊞" : "☰";
+    }
+
     function openModal(id) {
-      const p = products.find((x) => x.id === id);
+      const p = products.find(x => x.id === id);
       if (!p) return;
       const brand = p.brand ? `<div class="modal-brand">${p.brand}</div>` : "";
+      const desc  = p.description.replace(/\n/g, "<br>");
       document.getElementById("modalContent").innerHTML = `
         ${buildCarousel(p, "modal")}
         <div class="modal-body">
@@ -203,12 +290,10 @@
           ${brand}
           <div class="modal-price">${formatPrice(p.price)}</div>
           ${buildModalEcomLinks(p)}
-          <div class="modal-desc">${p.description}</div>
+          <div class="modal-desc">${desc}</div>
           <div class="modal-actions">
             <a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener"
-              onclick="trackWaClick(${p.id})">
-              💬 Chat WhatsApp
-            </a>
+              onclick="trackWaClick(${p.id})">💬 Chat WhatsApp</a>
             <button class="btn-close"
               onclick="document.getElementById('modalOverlay').classList.remove('active');document.body.style.overflow=''">
               Tutup
@@ -220,24 +305,37 @@
       initCarousels();
     }
 
-    function closeModal(event) {
-      if (event.target === document.getElementById("modalOverlay")) {
+    function closeModal(e) {
+      if (e.target === document.getElementById("modalOverlay")) {
         document.getElementById("modalOverlay").classList.remove("active");
         document.body.style.overflow = "";
       }
     }
 
-    document.addEventListener("keydown", (e) => {
+    document.addEventListener("keydown", e => {
       if (e.key === "Escape") {
         document.getElementById("modalOverlay").classList.remove("active");
         document.body.style.overflow = "";
       }
     });
 
-    document.getElementById("searchInput").addEventListener("input", () => renderGrid(getFiltered()));
+    document.getElementById("searchInput").addEventListener("input",  () => renderGrid(getFiltered()));
     document.getElementById("sortSelect").addEventListener("change", () => renderGrid(getFiltered()));
 
-    renderGrid(getFiltered());
+    // ── Init ──────────────────────────────────────────────────
+    (async () => {
+      try {
+        products = await fetchProducts();
+        renderGrid(getFiltered());
+      } catch (err) {
+        document.getElementById("productGrid").innerHTML = `
+          <div class="empty-state">
+            <div style="font-size:2rem">⚠️</div>
+            <p>${err.message}</p>
+          </div>`;
+        document.getElementById("productCount").textContent = "";
+      }
+    })();
   </script>
 </body>
 </html>

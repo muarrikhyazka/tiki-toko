@@ -303,8 +303,55 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="products.js"></script>
   <script>
+    // ── CSV helpers (same logic as index.html) ────────────────
+    async function fetchProductsCSV() {
+      if (!SHEET_CSV_URL || SHEET_CSV_URL === "YOUR_CSV_URL_HERE") return [];
+      try {
+        const resp = await fetch(SHEET_CSV_URL);
+        if (!resp.ok) return [];
+        return csvToProducts(parseCSV(await resp.text()));
+      } catch { return []; }
+    }
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [], field = "", inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i], n = text[i + 1];
+        if (inQ) {
+          if (c === '"' && n === '"') { field += '"'; i++; }
+          else if (c === '"') { inQ = false; }
+          else { field += c; }
+        } else {
+          if      (c === '"')  { inQ = true; }
+          else if (c === ',')  { row.push(field); field = ""; }
+          else if (c === '\r' && n === '\n') { row.push(field); rows.push(row); row = []; field = ""; i++; }
+          else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+          else { field += c; }
+        }
+      }
+      if (field !== "" || row.length > 0) { row.push(field); rows.push(row); }
+      return rows;
+    }
+
+    function csvToProducts(rows) {
+      if (rows.length < 3) return [];
+      const headers = rows[1].map(h => h.trim().toLowerCase());
+      const col = name => headers.indexOf(name.toLowerCase());
+      const iNo = col("no"), iName = col("nama barang"), iTreat = col("treatment"),
+            iBrand = col("merk/tipe"), iPrice = col("harga");
+      return rows.slice(2)
+        .filter(r => (r[iName] || "").trim() && (r[iTreat] || "").trim().toLowerCase() === "dijual")
+        .map(r => ({
+          id   : parseInt((r[iNo] || "").trim()) || 0,
+          name : (r[iName]  || "").trim(),
+          brand: (r[iBrand] || "").trim(),
+          price: parseInt(((r[iPrice] || "")).replace(/[^0-9]/g, "")) || 0,
+        }));
+    }
+    // ─────────────────────────────────────────────────────────
+
     function login() {
       const pw  = document.getElementById("pwInput").value;
       const err = document.getElementById("loginError");
@@ -348,7 +395,6 @@
     }
 
     async function loadDashboard() {
-      // Cek apakah URL sudah diisi
       if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE") {
         showTableState("⚙️",
           "APPS_SCRIPT_URL belum diisi.",
@@ -358,34 +404,40 @@
         return;
       }
 
-      showTableState("⏳", "Memuat data dari Google Sheets...");
+      showTableState("⏳", "Memuat data...");
       document.getElementById("updatedAt").textContent = "";
 
-      let sheetsData = [];
-      try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getData`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        sheetsData = await res.json();
-        if (sheetsData.error) throw new Error(sheetsData.error);
-      } catch (err) {
-        showTableState("⚠️",
-          "Gagal mengambil data dari Google Sheets.",
-          `Error: ${err.message}`
-        );
+      // Fetch produk dari CSV dan klik dari Apps Script secara paralel
+      const [csvProducts, sheetsData] = await Promise.all([
+        fetchProductsCSV(),
+        fetch(`${APPS_SCRIPT_URL}?action=getData`)
+          .then(r => r.json())
+          .catch(() => []),
+      ]);
+
+      if (sheetsData && sheetsData.error) {
+        showTableState("⚠️", "Gagal mengambil data klik.", `Error: ${sheetsData.error}`);
         document.getElementById("summary").innerHTML = "";
         return;
       }
 
-      // Merge data Sheets dengan daftar produk di products.js
-      // Semua produk ditampilkan; yang belum pernah diklik = 0
-      const clickMap = {};
+      const clickMap     = {};
       const lastClickMap = {};
-      sheetsData.forEach((row) => {
-        clickMap[row.productId]      = row.clicks;
-        lastClickMap[row.productId]  = row.lastClick;
+      (Array.isArray(sheetsData) ? sheetsData : []).forEach(row => {
+        clickMap[row.productId]     = row.clicks;
+        lastClickMap[row.productId] = row.lastClick;
       });
 
-      const rows = products.map((p) => ({
+      // Gabungkan: semua produk dari CSV, klik dari Apps Script
+      // Kalau CSV gagal, tampilkan produk dari klik data saja
+      let productList = csvProducts;
+      if (!productList.length) {
+        productList = (Array.isArray(sheetsData) ? sheetsData : []).map(r => ({
+          id: r.productId, name: r.productName, brand: "", price: 0,
+        }));
+      }
+
+      const rows = productList.map(p => ({
         id       : p.id,
         name     : p.name,
         brand    : p.brand || "",
