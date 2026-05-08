@@ -12,7 +12,7 @@ const SHEET_CSV_URL =
 
 // URL Google Apps Script untuk tracking klik WA (lihat apps-script.js)
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbwl2SYFnAWdAbz-pFYcewFe_qU91gW0oabZ8ti13JWAGfbmgKW_bA6Xbfah6inu0oCc/exec";
+  "https://script.google.com/macros/s/AKfycbwlQ9mpP2Rm67X8EqXeklTo-AsBQ6VCFVoFbwLxvt23f16H5B_XvwXca_gC9KwtxmfB/exec";
 
 // URL CSV sheet tracker (File → Share → Publish to web → pilih tab Clicks → CSV)
 const TRACKER_CSV_URL =
