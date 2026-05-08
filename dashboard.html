@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Tiki Toko</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    /* ── LOGIN ── */
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #FF4081 0%, #ff6baa 100%);
+    }
+
+    .login-card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+
+    .login-card .logo {
+      font-size: 2.5rem;
+      margin-bottom: 6px;
+    }
+
+    .login-card h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #FF4081;
+      margin-bottom: 4px;
+    }
+
+    .login-card p {
+      font-size: 0.85rem;
+      color: #999;
+      margin-bottom: 28px;
+    }
+
+    .login-card input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1.5px solid #eee;
+      border-radius: 10px;
+      font-size: 1rem;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .login-card input:focus {
+      border-color: #FF4081;
+    }
+
+    .btn-login {
+      width: 100%;
+      background: #FF4081;
+      color: white;
+      border: none;
+      padding: 13px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-login:hover { background: #e0356e; }
+
+    .login-error {
+      color: #e53935;
+      font-size: 0.82rem;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+
+    /* ── DASHBOARD ── */
+    .dash-header {
+      background: #FF4081;
+      color: white;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .dash-header h1 { font-size: 1.1rem; font-weight: 700; }
+    .dash-header span { font-size: 0.8rem; opacity: 0.85; }
+
+    .btn-logout {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+
+    .dash-body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    /* Summary cards */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
+    .stat-card .label {
+      font-size: 0.75rem;
+      color: #aaa;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-card .value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #FF4081;
+      line-height: 1;
+    }
+
+    .stat-card .sub {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    /* Table */
+    .table-wrap {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      overflow: hidden;
+    }
+
+    .table-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .table-head h2 {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .btn-reset {
+      background: none;
+      border: 1px solid #eee;
+      color: #aaa;
+      padding: 5px 12px;
+      border-radius: 7px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .btn-reset:hover { border-color: #e53935; color: #e53935; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      background: #fafafa;
+      text-align: left;
+      padding: 11px 16px;
+      font-size: 0.78rem;
+      color: #999;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #f8f8f8;
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fef6f9; }
+
+    tbody td {
+      padding: 13px 16px;
+      font-size: 0.88rem;
+      vertical-align: middle;
+    }
+
+    .td-rank {
+      color: #ccc;
+      font-weight: 700;
+      font-size: 0.8rem;
+      width: 32px;
+    }
+
+    .td-name { font-weight: 600; }
+    .td-brand { color: #aaa; font-size: 0.78rem; }
+    .td-price { color: #FF4081; font-weight: 700; white-space: nowrap; }
+
+    .td-clicks {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .td-clicks.zero { color: #ddd; }
+    .td-clicks.nonzero { color: #333; }
+
+    .bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bar {
+      flex: 1;
+      height: 6px;
+      background: #f0f0f0;
+      border-radius: 3px;
+      overflow: hidden;
+      min-width: 40px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: #FF4081;
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 50px 20px;
+      color: #bbb;
+    }
+
+    .no-data p { margin-top: 8px; font-size: 0.9rem; }
+
+    /* Note */
+    .note {
+      margin-top: 20px;
+      padding: 12px 16px;
+      background: #fff8e1;
+      border-left: 3px solid #ffc107;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.8rem;
+      color: #7a6000;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 480px) {
+      .summary { grid-template-columns: repeat(2, 1fr); }
+      thead th:nth-child(4),
+      tbody td:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="login-wrap">
+    <div class="login-card">
+      <div class="logo">🏷️</div>
+      <h1>Tiki Toko</h1>
+      <p>Dashboard Admin</p>
+      <input
+        type="password"
+        id="pwInput"
+        placeholder="Masukkan password"
+        onkeydown="if(event.key==='Enter') login()"
+        autofocus
+      />
+      <button class="btn-login" onclick="login()">Masuk</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD SCREEN -->
+  <div id="dashScreen" style="display:none">
+    <div class="dash-header">
+      <div>
+        <h1>🏷️ Dashboard Tiki Toko</h1>
+        <span>Statistik klik tombol Chat WA</span>
+      </div>
+      <button class="btn-logout" onclick="logout()">Keluar</button>
+    </div>
+
+    <div class="dash-body">
+      <div class="summary" id="summary"></div>
+
+      <div class="table-wrap">
+        <div class="table-head">
+          <h2>Klik per Produk</h2>
+          <button class="btn-reset" onclick="resetData()">Reset data</button>
+        </div>
+        <div id="tableContainer"></div>
+      </div>
+
+      <div class="note">
+        ⚠️ Data ini tersimpan di browser ini saja (localStorage). Klik dari perangkat atau browser lain tidak terekam di sini.
+        Untuk tracking semua pengunjung secara real-time, diperlukan integrasi layanan backend seperti Supabase atau Google Analytics.
+      </div>
+    </div>
+  </div>
+
+  <script src="products.js"></script>
+  <script>
+    // Ganti password di bawah ini
+    const DASHBOARD_PASSWORD = "tiki123";
+
+    function login() {
+      const pw = document.getElementById("pwInput").value;
+      const err = document.getElementById("loginError");
+      if (pw === DASHBOARD_PASSWORD) {
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("dashScreen").style.display = "block";
+        loadDashboard();
+      } else {
+        err.textContent = "Password salah. Coba lagi.";
+        document.getElementById("pwInput").value = "";
+        document.getElementById("pwInput").focus();
+      }
+    }
+
+    function logout() {
+      document.getElementById("dashScreen").style.display = "none";
+      document.getElementById("loginScreen").style.display = "flex";
+      document.getElementById("pwInput").value = "";
+      document.getElementById("loginError").textContent = "";
+    }
+
+    function formatPrice(price) {
+      return "Rp " + price.toLocaleString("id-ID");
+    }
+
+    function loadDashboard() {
+      const clicks = JSON.parse(localStorage.getItem("tt-clicks") || "{}");
+
+      // Build rows: merge product data with click counts
+      const rows = products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        brand: p.brand || "",
+        price: p.price,
+        clicks: clicks[p.id] || 0,
+      })).sort((a, b) => b.clicks - a.clicks);
+
+      const totalClicks = rows.reduce((sum, r) => sum + r.clicks, 0);
+      const topProduct = rows[0] && rows[0].clicks > 0 ? rows[0].name : "—";
+      const activeProducts = rows.filter((r) => r.clicks > 0).length;
+      const maxClicks = rows[0] ? rows[0].clicks : 1;
+
+      // Summary cards
+      document.getElementById("summary").innerHTML = `
+        <div class="stat-card">
+          <div class="label">Total Klik WA</div>
+          <div class="value">${totalClicks}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Produk Diminati</div>
+          <div class="value">${activeProducts}</div>
+          <div class="sub">dari ${products.length} produk</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Paling Diminati</div>
+          <div class="value" style="font-size:1rem;padding-top:4px">${topProduct}</div>
+        </div>
+      `;
+
+      // Table
+      if (totalClicks === 0) {
+        document.getElementById("tableContainer").innerHTML = `
+          <div class="no-data">
+            <div style="font-size:2.5rem">📭</div>
+            <p>Belum ada klik yang terekam.</p>
+          </div>`;
+        return;
+      }
+
+      const tbody = rows.map((r, i) => `
+        <tr>
+          <td class="td-rank">${i + 1}</td>
+          <td>
+            <div class="td-name">${r.name}</div>
+            ${r.brand ? `<div class="td-brand">${r.brand}</div>` : ""}
+          </td>
+          <td class="td-price">${formatPrice(r.price)}</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar">
+                <div class="bar-fill" style="width:${maxClicks > 0 ? (r.clicks / maxClicks * 100) : 0}%"></div>
+              </div>
+            </div>
+          </td>
+          <td class="td-clicks ${r.clicks > 0 ? "nonzero" : "zero"}">${r.clicks}</td>
+        </tr>`
+      ).join("");
+
+      document.getElementById("tableContainer").innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Produk</th>
+              <th>Harga</th>
+              <th>Grafik</th>
+              <th>Klik</th>
+            </tr>
+          </thead>
+          <tbody>${tbody}</tbody>
+        </table>`;
+    }
+
+    function resetData() {
+      if (!confirm("Reset semua data klik? Tindakan ini tidak bisa dibatalkan.")) return;
+      localStorage.removeItem("tt-clicks");
+      loadDashboard();
+    }
+  </script>
+</body>
+</html>

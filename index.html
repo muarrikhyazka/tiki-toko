@@ -62,22 +62,35 @@
       return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
     }
 
+    function getEcomName(url) {
+      try {
+        return new URL(url).hostname.replace(/^www\./, "");
+      } catch {
+        return "Lihat";
+      }
+    }
+
+    function trackWaClick(productId) {
+      try {
+        const data = JSON.parse(localStorage.getItem("tt-clicks") || "{}");
+        data[productId] = (data[productId] || 0) + 1;
+        localStorage.setItem("tt-clicks", JSON.stringify(data));
+      } catch (e) {}
+    }
+
     function buildCarousel(p, idPrefix) {
       const hasImages = p.images && p.images.length > 0;
       if (!hasImages) {
         return `<div class="carousel-placeholder">📦</div>`;
       }
-
       const slides = p.images.map((img) =>
         `<img class="carousel-slide" src="${p.imageFolder}/${img}" alt="${p.name}" loading="lazy">`
       ).join("");
-
       const dots = p.images.length > 1
         ? `<div class="carousel-dots">${p.images.map((_, i) =>
             `<span class="dot${i === 0 ? " active" : ""}"></span>`
           ).join("")}</div>`
         : "";
-
       return `
         <div class="carousel" data-id="${idPrefix}-${p.id}">
           <div class="carousel-track">${slides}</div>
@@ -87,23 +100,22 @@
 
     function buildCardEcomLinks(p) {
       if (!p.ecommerceLinks || p.ecommerceLinks.length === 0) return "";
-      const links = p.ecommerceLinks.map((e, i) => {
-        const sep = i < p.ecommerceLinks.length - 1
-          ? `<span class="card-ecom-sep">·</span>` : "";
-        return `<a class="card-ecom-link" href="${e.url}" target="_blank" rel="noopener"
-          onclick="event.stopPropagation()">${e.label} ↗</a>${sep}`;
+      const parts = p.ecommerceLinks.map((url, i) => {
+        const sep = i < p.ecommerceLinks.length - 1 ? `<span class="card-ecom-sep">·</span>` : "";
+        return `<a class="card-ecom-link" href="${url}" target="_blank" rel="noopener"
+          onclick="event.stopPropagation()">${getEcomName(url)} ↗</a>${sep}`;
       }).join("");
       return `
         <div class="card-ecom-links">
           <span class="card-ecom-label">Cek harga baru:</span>
-          <div>${links}</div>
+          <div>${parts}</div>
         </div>`;
     }
 
     function buildModalEcomLinks(p) {
       if (!p.ecommerceLinks || p.ecommerceLinks.length === 0) return "";
-      const buttons = p.ecommerceLinks.map((e) =>
-        `<a class="modal-ecom-btn" href="${e.url}" target="_blank" rel="noopener">${e.label} ↗</a>`
+      const buttons = p.ecommerceLinks.map((url) =>
+        `<a class="modal-ecom-btn" href="${url}" target="_blank" rel="noopener">${getEcomName(url)} ↗</a>`
       ).join("");
       return `<div class="modal-ecom-links">${buttons}</div>`;
     }
@@ -113,7 +125,6 @@
         const track = carousel.querySelector(".carousel-track");
         const dots = carousel.querySelectorAll(".dot");
         if (!track || dots.length === 0) return;
-        // remove old listener by cloning
         const fresh = track.cloneNode(true);
         track.parentNode.replaceChild(fresh, track);
         fresh.addEventListener("scroll", () => {
@@ -126,7 +137,6 @@
     function renderGrid(list) {
       const grid = document.getElementById("productGrid");
       const count = document.getElementById("productCount");
-
       count.textContent = `Menampilkan ${list.length} produk`;
 
       if (list.length === 0) {
@@ -139,9 +149,7 @@
       }
 
       grid.innerHTML = list.map((p) => {
-        const brand = p.brand
-          ? `<div class="card-brand">${p.brand}</div>` : "";
-
+        const brand = p.brand ? `<div class="card-brand">${p.brand}</div>` : "";
         return `
           <div class="card" onclick="openModal(${p.id})">
             ${buildCarousel(p, "card")}
@@ -152,7 +160,7 @@
               <div class="card-desc">${p.description}</div>
               ${buildCardEcomLinks(p)}
               <a class="btn-wa" href="${buildWaLink(p)}" target="_blank" rel="noopener"
-                onclick="event.stopPropagation()">
+                onclick="event.stopPropagation(); trackWaClick(${p.id})">
                 💬 Chat WA
               </a>
             </div>
@@ -164,36 +172,28 @@
 
     function toggleView() {
       isListView = !isListView;
-      const grid = document.getElementById("productGrid");
+      document.getElementById("productGrid").classList.toggle("list-view", isListView);
       const btn = document.getElementById("viewToggle");
-      grid.classList.toggle("list-view", isListView);
       btn.textContent = isListView ? "⊞" : "☰";
-      btn.title = isListView ? "Tampilan grid" : "Tampilan list";
     }
 
     function getFiltered() {
       const query = document.getElementById("searchInput").value.toLowerCase().trim();
       const sort = document.getElementById("sortSelect").value;
-
       let list = products.filter((p) =>
         p.name.toLowerCase().includes(query) ||
         (p.brand || "").toLowerCase().includes(query) ||
         p.description.toLowerCase().includes(query)
       );
-
       if (sort === "price-asc") list.sort((a, b) => a.price - b.price);
       if (sort === "price-desc") list.sort((a, b) => b.price - a.price);
-
       return list;
     }
 
     function openModal(id) {
       const p = products.find((x) => x.id === id);
       if (!p) return;
-
-      const brand = p.brand
-        ? `<div class="modal-brand">${p.brand}</div>` : "";
-
+      const brand = p.brand ? `<div class="modal-brand">${p.brand}</div>` : "";
       document.getElementById("modalContent").innerHTML = `
         ${buildCarousel(p, "modal")}
         <div class="modal-body">
@@ -203,7 +203,8 @@
           ${buildModalEcomLinks(p)}
           <div class="modal-desc">${p.description}</div>
           <div class="modal-actions">
-            <a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener">
+            <a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener"
+              onclick="trackWaClick(${p.id})">
               💬 Chat WhatsApp
             </a>
             <button class="btn-close"
@@ -212,7 +213,6 @@
             </button>
           </div>
         </div>`;
-
       document.getElementById("modalOverlay").classList.add("active");
       document.body.style.overflow = "hidden";
       initCarousels();

@@ -4,14 +4,14 @@ const products = [
   {
     id: 1,
     name: "Contoh Produk 1",
-    brand: "Nike / Air Max 90",           // merk / tipe (opsional)
+    brand: "Nike / Air Max 90",
     price: 150000,
     description: "Deskripsi singkat produk. Jarang dipakai, kondisi masih bagus. Bisa dicek langsung sebelum beli.",
     imageFolder: "images/produk1",
-    images: ["1.jpg", "2.jpg", "3.jpg"],  // nama file foto dalam folder
-    ecommerceLinks: [                      // satu atau beberapa link (opsional)
-      { label: "Tokopedia", url: "https://tokopedia.com" },
-      { label: "Shopee", url: "https://shopee.co.id" },
+    images: ["1.jpg", "2.jpg", "3.jpg"],
+    ecommerceLinks: [                      // cukup URL-nya saja, nama toko otomatis terdeteksi
+      "https://tokopedia.com/xxx",
+      "https://shopee.co.id/xxx",
     ],
   },
   {
@@ -23,13 +23,12 @@ const products = [
     imageFolder: "images/produk2",
     images: ["1.jpg"],
     ecommerceLinks: [
-      { label: "Tokopedia", url: "https://tokopedia.com" },
+      "https://tokopedia.com/xxx",
     ],
   },
   {
     id: 3,
     name: "Contoh Produk 3",
-    // tanpa brand → tidak ditampilkan
     price: 200000,
     description: "Deskripsi singkat produk. Beli tapi tidak pernah dipakai, masih dalam kondisi seperti baru.",
     imageFolder: "images/produk3",
