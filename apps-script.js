@@ -5,10 +5,10 @@
  *  CARA SETUP (lakukan sekali saja):
  * ═══════════════════════════════════════════════════
  *
- *  1. Buka Google Sheets → buat spreadsheet baru
+ *  1. Buka Google Sheets → buat spreadsheet baru (TERPISAH dari sheet produk)
  *     Rename tab pertama menjadi persis: Clicks
  *     Isi baris 1 (header):
- *       A1: product_id  |  B1: product_name  |  C1: click_count  |  D1: last_click
+ *       A1: product_id  |  B1: product_name  |  C1: product_clicks  |  D1: wa_clicks  |  E1: last_click
  *
  *  2. Di Google Sheets: Extensions → Apps Script
  *     Hapus semua kode yang ada
@@ -49,9 +49,10 @@ function doGet(e) {
     }
 
     if (action === "click") {
-      const id   = parseInt(e.parameter.id)       || 0;
-      const name = (e.parameter.name || "").trim();
-      if (id > 0) recordClick(sheet, id, name);
+      const id        = parseInt(e.parameter.id)        || 0;
+      const name      = (e.parameter.name || "").trim();
+      const clickType = (e.parameter.type || "wa").trim(); // "product" atau "wa"
+      if (id > 0) recordClick(sheet, id, name, clickType);
       return jsonOut({ success: true });
     }
 
@@ -64,7 +65,6 @@ function doGet(e) {
       return jsonOut({ success: true });
     }
 
-    // ping / health check
     return jsonOut({ status: "ok", sheet: SHEET_NAME });
 
   } catch (err) {
@@ -72,18 +72,25 @@ function doGet(e) {
   }
 }
 
-function recordClick(sheet, productId, productName) {
-  const values  = sheet.getDataRange().getValues();
+function recordClick(sheet, productId, productName, clickType) {
+  const values = sheet.getDataRange().getValues();
 
   for (let i = 1; i < values.length; i++) {
     if (Number(values[i][0]) === productId) {
-      sheet.getRange(i + 1, 3).setValue(Number(values[i][2]) + 1);
-      sheet.getRange(i + 1, 4).setValue(new Date());
+      if (clickType === "product") {
+        sheet.getRange(i + 1, 3).setValue(Number(values[i][2]) + 1); // product_clicks (col C)
+      } else {
+        sheet.getRange(i + 1, 4).setValue(Number(values[i][3]) + 1); // wa_clicks (col D)
+      }
+      sheet.getRange(i + 1, 5).setValue(new Date()); // last_click (col E)
       return;
     }
   }
-  // Produk baru → tambah baris
-  sheet.appendRow([productId, productName, 1, new Date()]);
+
+  // Produk baru
+  const pClicks = clickType === "product" ? 1 : 0;
+  const wClicks = clickType === "wa"      ? 1 : 0;
+  sheet.appendRow([productId, productName, pClicks, wClicks, new Date()]);
 }
 
 function getAllData(sheet) {
@@ -94,10 +101,11 @@ function getAllData(sheet) {
     const row = values[i];
     if (!row[0]) continue;
     result.push({
-      productId  : Number(row[0]),
-      productName: String(row[1] || ""),
-      clicks     : Number(row[2] || 0),
-      lastClick  : row[3] instanceof Date ? row[3].toISOString() : null,
+      productId     : Number(row[0]),
+      productName   : String(row[1] || ""),
+      productClicks : Number(row[2] || 0),
+      waClicks      : Number(row[3] || 0),
+      lastClick     : row[4] instanceof Date ? row[4].toISOString() : null,
     });
   }
   return result;
@@ -105,7 +113,7 @@ function getAllData(sheet) {
 
 function clearData(sheet) {
   const last = sheet.getLastRow();
-  if (last > 1) sheet.getRange(2, 1, last - 1, 4).clearContent();
+  if (last > 1) sheet.getRange(2, 1, last - 1, 5).clearContent();
 }
 
 function jsonOut(obj) {

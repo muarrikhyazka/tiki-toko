@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Tiki Toko</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -407,13 +408,33 @@
       showTableState("⏳", "Memuat data...");
       document.getElementById("updatedAt").textContent = "";
 
+      // Fetch Apps Script dengan timeout 12 detik
+      async function fetchAppsScript() {
+        const ctrl  = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        try {
+          const r = await fetch(`${APPS_SCRIPT_URL}?action=getData`, { signal: ctrl.signal });
+          return await r.json();
+        } catch (err) {
+          if (err.name === "AbortError") return { _timeout: true };
+          return [];
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
       // Fetch produk dari CSV dan klik dari Apps Script secara paralel
       const [csvProducts, sheetsData] = await Promise.all([
         fetchProductsCSV(),
-        fetch(`${APPS_SCRIPT_URL}?action=getData`)
-          .then(r => r.json())
-          .catch(() => []),
+        fetchAppsScript(),
       ]);
+
+      if (sheetsData && sheetsData._timeout) {
+        showTableState("⏱️", "Koneksi ke Apps Script timeout (>12 detik).",
+          "Pastikan Apps Script sudah di-deploy sebagai Web App dan sheet \"Clicks\" sudah ada.");
+        document.getElementById("summary").innerHTML = "";
+        return;
+      }
 
       if (sheetsData && sheetsData.error) {
         showTableState("⚠️", "Gagal mengambil data klik.", `Error: ${sheetsData.error}`);
@@ -421,15 +442,15 @@
         return;
       }
 
-      const clickMap     = {};
-      const lastClickMap = {};
+      const clickMap = {};
       (Array.isArray(sheetsData) ? sheetsData : []).forEach(row => {
-        clickMap[row.productId]     = row.clicks;
-        lastClickMap[row.productId] = row.lastClick;
+        clickMap[row.productId] = {
+          product: row.productClicks || 0,
+          wa     : row.waClicks      || 0,
+          last   : row.lastClick     || null,
+        };
       });
 
-      // Gabungkan: semua produk dari CSV, klik dari Apps Script
-      // Kalau CSV gagal, tampilkan produk dari klik data saja
       let productList = csvProducts;
       if (!productList.length) {
         productList = (Array.isArray(sheetsData) ? sheetsData : []).map(r => ({
@@ -437,43 +458,50 @@
         }));
       }
 
-      const rows = productList.map(p => ({
-        id       : p.id,
-        name     : p.name,
-        brand    : p.brand || "",
-        price    : p.price,
-        clicks   : clickMap[p.id]     || 0,
-        lastClick: lastClickMap[p.id] || null,
-      })).sort((a, b) => b.clicks - a.clicks);
+      const rows = productList.map(p => {
+        const c = clickMap[p.id] || { product: 0, wa: 0, last: null };
+        return {
+          id           : p.id,
+          name         : p.name,
+          brand        : p.brand || "",
+          price        : p.price,
+          productClicks: c.product,
+          waClicks     : c.wa,
+          lastClick    : c.last,
+        };
+      }).sort((a, b) => (b.waClicks + b.productClicks) - (a.waClicks + a.productClicks));
 
-      const total      = rows.reduce((s, r) => s + r.clicks, 0);
-      const active     = rows.filter((r) => r.clicks > 0).length;
-      const topProduct = rows[0] && rows[0].clicks > 0 ? rows[0].name : "—";
-      const maxClicks  = rows[0] ? rows[0].clicks : 1;
+      const totalWa      = rows.reduce((s, r) => s + r.waClicks, 0);
+      const totalProduct = rows.reduce((s, r) => s + r.productClicks, 0);
+      const active       = rows.filter(r => r.waClicks > 0 || r.productClicks > 0).length;
+      const topProduct   = rows[0] && rows[0].waClicks > 0 ? rows[0].name : "—";
+      const maxWa        = Math.max(...rows.map(r => r.waClicks), 1);
 
       // Summary
       document.getElementById("summary").innerHTML = `
         <div class="stat-card">
-          <div class="label">Total Klik WA</div>
-          <div class="value">${total}</div>
+          <div class="label">Klik Chat WA</div>
+          <div class="value">${totalWa}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Buka Produk</div>
+          <div class="value">${totalProduct}</div>
         </div>
         <div class="stat-card">
           <div class="label">Produk Diminati</div>
           <div class="value">${active}</div>
-          <div class="sub">dari ${products.length} produk</div>
+          <div class="sub">dari ${productList.length} produk</div>
         </div>
         <div class="stat-card">
           <div class="label">Paling Diminati</div>
-          <div class="value" style="font-size:0.95rem;padding-top:6px;line-height:1.3">${topProduct}</div>
+          <div class="value" style="font-size:0.85rem;padding-top:6px;line-height:1.3">${topProduct}</div>
         </div>`;
 
-      // Timestamp refresh
       document.getElementById("updatedAt").textContent =
         "Diperbarui: " + new Date().toLocaleTimeString("id-ID");
 
-      // Table
-      if (total === 0) {
-        showTableState("📭", "Belum ada klik yang terekam.", "Bagikan link toko ke pembeli dan klik WA akan muncul di sini.");
+      if (totalWa + totalProduct === 0) {
+        showTableState("📭", "Belum ada klik yang terekam.", "Bagikan link toko ke pembeli dan klik akan muncul di sini.");
         return;
       }
 
@@ -487,11 +515,12 @@
           <td class="td-price">${formatPrice(r.price)}</td>
           <td>
             <div class="bar">
-              <div class="bar-fill" style="width:${maxClicks > 0 ? (r.clicks / maxClicks * 100).toFixed(1) : 0}%"></div>
+              <div class="bar-fill" style="width:${(r.waClicks / maxWa * 100).toFixed(1)}%"></div>
             </div>
           </td>
+          <td class="td-clicks ${r.productClicks > 0 ? "nonzero" : "zero"}">${r.productClicks}</td>
+          <td class="td-clicks ${r.waClicks > 0 ? "nonzero" : "zero"}">${r.waClicks}</td>
           <td class="td-last">${formatDate(r.lastClick)}</td>
-          <td class="td-clicks ${r.clicks > 0 ? "nonzero" : "zero"}">${r.clicks}</td>
         </tr>`
       ).join("");
 
@@ -502,9 +531,10 @@
               <th>#</th>
               <th>Produk</th>
               <th>Harga</th>
-              <th style="min-width:80px">Grafik</th>
-              <th>Klik Terakhir</th>
-              <th style="text-align:right">Klik</th>
+              <th style="min-width:70px">Grafik WA</th>
+              <th style="text-align:right">Buka</th>
+              <th style="text-align:right">WA</th>
+              <th>Terakhir</th>
             </tr>
           </thead>
           <tbody>${tbody}</tbody>

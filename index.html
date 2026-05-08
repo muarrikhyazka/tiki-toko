@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tiki Toko — Barang Bekas Berkualitas</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -131,12 +132,15 @@
     const getEcomName = url => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "Lihat"; } };
 
     // ── Click Tracking ────────────────────────────────────────
-    function trackWaClick(productId) {
+    function sendClick(productId, type) {
       if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE") return;
       const p    = products.find(x => x.id === productId);
       const name = p ? encodeURIComponent(p.name) : "";
-      fetch(`${APPS_SCRIPT_URL}?action=click&id=${productId}&name=${name}`, { mode: "no-cors" }).catch(() => {});
+      fetch(`${APPS_SCRIPT_URL}?action=click&type=${type}&id=${productId}&name=${name}`, { mode: "no-cors" }).catch(() => {});
     }
+
+    const trackWaClick      = id => sendClick(id, "wa");
+    const trackProductClick = id => sendClick(id, "product");
 
     // ── Carousel ──────────────────────────────────────────────
     // Coba muat 1.jpg s/d MAX_IMG.jpg; gambar yang 404 dihapus otomatis.
@@ -276,6 +280,7 @@
     }
 
     function openModal(id) {
+      trackProductClick(id);
       const p = products.find(x => x.id === id);
       if (!p) return;
       const brand = p.brand ? `<div class="modal-brand">${p.brand}</div>` : "";

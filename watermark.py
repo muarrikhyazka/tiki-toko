@@ -169,6 +169,34 @@ def watermark_video(path: Path) -> None:
     os.replace(tmp, path)
 
 
+def rename_sequentially(folder_path: Path, images: list[Path], videos: list[Path]) -> None:
+    """Rename watermarked files to 1.jpg/2.jpg/... and 1.mp4/2.mp4/..."""
+    if not images and not videos:
+        return
+
+    # Pass 1: rename to unique temp names to avoid collisions
+    img_temps, vid_temps = [], []
+    for i, p in enumerate(images):
+        tmp = folder_path / f"__wm_img_{i}{p.suffix.lower()}"
+        p.rename(tmp)
+        img_temps.append((tmp, p.suffix.lower()))
+    for i, p in enumerate(videos):
+        tmp = folder_path / f"__wm_vid_{i}{p.suffix.lower()}"
+        p.rename(tmp)
+        vid_temps.append((tmp, p.suffix.lower()))
+
+    # Pass 2: rename to final sequential names
+    for i, (tmp, ext) in enumerate(img_temps, 1):
+        tmp.rename(folder_path / f"{i}{ext}")
+    for i, (tmp, ext) in enumerate(vid_temps, 1):
+        tmp.rename(folder_path / f"{i}{ext}")
+
+    print(f"Rename   : {len(img_temps)} gambar → 1{img_temps[0][1]}…  |  "
+          f"{len(vid_temps)} video → 1{vid_temps[0][1]}…" if img_temps and vid_temps else
+          f"Rename   : {len(img_temps)} gambar → 1{img_temps[0][1]}…" if img_temps else
+          f"Rename   : {len(vid_temps)} video → 1{vid_temps[0][1]}…")
+
+
 def main() -> None:
     # Ambil path folder dari argumen atau tanya user
     if len(sys.argv) >= 2:
@@ -201,14 +229,18 @@ def main() -> None:
     print("-" * 55)
 
     ok = fail = 0
+    ok_images: list[Path] = []
+    ok_videos: list[Path] = []
     for i, path in enumerate(images + videos, 1):
         kind = "IMG" if path.suffix.lower() in IMAGE_EXTS else "VID"
         print(f"[{i:3}/{total}] {kind}  {path.name[:45]:<45} ", end="", flush=True)
         try:
             if kind == "IMG":
                 watermark_image(path)
+                ok_images.append(path)
             else:
                 watermark_video(path)
+                ok_videos.append(path)
             print("✓")
             ok += 1
         except Exception as e:
@@ -217,6 +249,8 @@ def main() -> None:
 
     print("-" * 55)
     print(f"Selesai: {ok} berhasil, {fail} gagal.")
+
+    rename_sequentially(folder_path, ok_images, ok_videos)
 
 
 if __name__ == "__main__":
