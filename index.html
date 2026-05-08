@@ -1,274 +1,371 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tiki Toko — Barang Bekas Berkualitas</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>">
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Tiki Toko — Barang Bekas Berkualitas</title>
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>"
+        />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <header>
+            <div class="header-inner">
+                <h1>🏷️ Tiki Toko</h1>
+            </div>
+        </header>
 
-  <header>
-    <div class="header-inner">
-      <h1>🏷️ Tiki Toko</h1>
-    </div>
-  </header>
+        <section class="hero">
+            <h2>Barang Bekas Berkualitas,<br />Harga Bersahabat</h2>
+            <span class="badge">📦 Kondisi terawat</span>
+        </section>
 
-  <section class="hero">
-    <h2>Barang Bekas Berkualitas,<br>Harga Bersahabat</h2>
-    <span class="badge">📦 Kondisi terawat · Nego santai</span>
-  </section>
+        <div class="controls">
+            <input
+                class="search-box"
+                type="search"
+                id="searchInput"
+                placeholder="🔍 Cari produk..."
+            />
+            <select class="filter-select" id="sortSelect">
+                <option value="default">Urutan default</option>
+                <option value="price-asc">Harga: Termurah</option>
+                <option value="price-desc">Harga: Termahal</option>
+            </select>
+            <button
+                class="view-toggle"
+                id="viewToggle"
+                onclick="toggleView()"
+                title="Ubah tampilan"
+            >
+                ⊞
+            </button>
+        </div>
 
-  <div class="controls">
-    <input class="search-box" type="search" id="searchInput" placeholder="🔍 Cari produk..." />
-    <select class="filter-select" id="sortSelect">
-      <option value="default">Urutan default</option>
-      <option value="price-asc">Harga: Termurah</option>
-      <option value="price-desc">Harga: Termahal</option>
-    </select>
-    <button class="view-toggle" id="viewToggle" onclick="toggleView()" title="Ubah tampilan">⊞</button>
-  </div>
+        <div class="product-count" id="productCount"></div>
 
-  <div class="product-count" id="productCount"></div>
+        <div class="grid" id="productGrid">
+            <div class="empty-state">
+                <div style="font-size: 2rem">⏳</div>
+                <p>Memuat produk...</p>
+            </div>
+        </div>
 
-  <div class="grid" id="productGrid">
-    <div class="empty-state">
-      <div style="font-size:2rem">⏳</div>
-      <p>Memuat produk...</p>
-    </div>
-  </div>
+        <div
+            class="modal-overlay"
+            id="modalOverlay"
+            onclick="closeModal(event)"
+        >
+            <div class="modal" id="modalContent"></div>
+        </div>
 
-  <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-    <div class="modal" id="modalContent"></div>
-  </div>
+        <script src="config.js"></script>
+        <script>
+            // ── State ─────────────────────────────────────────────────
+            let products = [];
+            let soldIds = new Set();
+            let isListView = false;
+            const MAX_IMG = 6; // coba muat 1.jpg s/d MAX_IMG.jpg per produk
 
+            // ── CSV: Fetch & Parse ────────────────────────────────────
+            async function fetchProducts() {
+                if (!SHEET_CSV_URL || SHEET_CSV_URL === "YOUR_CSV_URL_HERE") {
+                    throw new Error("SHEET_CSV_URL belum diisi di config.js");
+                }
+                const resp = await fetch(SHEET_CSV_URL);
+                if (!resp.ok)
+                    throw new Error(`Gagal memuat data (HTTP ${resp.status})`);
+                return csvToProducts(parseCSV(await resp.text()));
+            }
 
-  <script src="config.js"></script>
-  <script>
-    // ── State ─────────────────────────────────────────────────
-    let products   = [];
-    let soldIds    = new Set();
-    let isListView = false;
-    const MAX_IMG  = 6; // coba muat 1.jpg s/d MAX_IMG.jpg per produk
+            function parseCSV(text) {
+                const rows = [];
+                let row = [],
+                    field = "",
+                    inQ = false;
+                for (let i = 0; i < text.length; i++) {
+                    const c = text[i],
+                        n = text[i + 1];
+                    if (inQ) {
+                        if (c === '"' && n === '"') {
+                            field += '"';
+                            i++;
+                        } else if (c === '"') {
+                            inQ = false;
+                        } else {
+                            field += c;
+                        }
+                    } else {
+                        if (c === '"') {
+                            inQ = true;
+                        } else if (c === ",") {
+                            row.push(field);
+                            field = "";
+                        } else if (c === "\r" && n === "\n") {
+                            row.push(field);
+                            rows.push(row);
+                            row = [];
+                            field = "";
+                            i++;
+                        } else if (c === "\n") {
+                            row.push(field);
+                            rows.push(row);
+                            row = [];
+                            field = "";
+                        } else {
+                            field += c;
+                        }
+                    }
+                }
+                if (field !== "" || row.length > 0) {
+                    row.push(field);
+                    rows.push(row);
+                }
+                return rows;
+            }
 
-    // ── CSV: Fetch & Parse ────────────────────────────────────
-    async function fetchProducts() {
-      if (!SHEET_CSV_URL || SHEET_CSV_URL === "YOUR_CSV_URL_HERE") {
-        throw new Error("SHEET_CSV_URL belum diisi di config.js");
-      }
-      const resp = await fetch(SHEET_CSV_URL);
-      if (!resp.ok) throw new Error(`Gagal memuat data (HTTP ${resp.status})`);
-      return csvToProducts(parseCSV(await resp.text()));
-    }
+            function csvToProducts(rows) {
+                // Baris 0 = judul sheet, baris 1 = header kolom, baris 2+ = data
+                if (rows.length < 3) return [];
+                const headers = rows[1].map((h) => h.trim().toLowerCase());
+                const col = (name) => headers.indexOf(name.toLowerCase());
 
-    function parseCSV(text) {
-      const rows = [];
-      let row = [], field = "", inQ = false;
-      for (let i = 0; i < text.length; i++) {
-        const c = text[i], n = text[i + 1];
-        if (inQ) {
-          if (c === '"' && n === '"') { field += '"'; i++; }
-          else if (c === '"') { inQ = false; }
-          else { field += c; }
-        } else {
-          if      (c === '"')  { inQ = true; }
-          else if (c === ',')  { row.push(field); field = ""; }
-          else if (c === '\r' && n === '\n') { row.push(field); rows.push(row); row = []; field = ""; i++; }
-          else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
-          else { field += c; }
-        }
-      }
-      if (field !== "" || row.length > 0) { row.push(field); rows.push(row); }
-      return rows;
-    }
+                const iNo = col("no");
+                const iName = col("nama barang");
+                const iTreat = col("treatment");
+                const iBrand = col("merk/tipe");
+                const iDesc = col("deskripsi");
+                const iLink = col("link");
+                const iPrice = col("harga");
 
-    function csvToProducts(rows) {
-      // Baris 0 = judul sheet, baris 1 = header kolom, baris 2+ = data
-      if (rows.length < 3) return [];
-      const headers = rows[1].map(h => h.trim().toLowerCase());
-      const col = name => headers.indexOf(name.toLowerCase());
+                return rows
+                    .slice(2)
+                    .filter((r) => {
+                        const name = (r[iName] || "").trim();
+                        const treat = (r[iTreat] || "").trim().toLowerCase();
+                        return name && treat === "dijual";
+                    })
+                    .map((r) => {
+                        const no = (r[iNo] || "").trim();
+                        return {
+                            id: parseInt(no) || 0,
+                            name: (r[iName] || "").trim(),
+                            brand: (r[iBrand] || "").trim(),
+                            description: (r[iDesc] || "").trim(),
+                            price: parsePrice(r[iPrice]),
+                            ecommerceLinks: parseLinks(r[iLink]),
+                            imageFolder: `images/${no}`,
+                        };
+                    });
+            }
 
-      const iNo    = col("no");
-      const iName  = col("nama barang");
-      const iTreat = col("treatment");
-      const iBrand = col("merk/tipe");
-      const iDesc  = col("deskripsi");
-      const iLink  = col("link");
-      const iPrice = col("harga");
+            const parsePrice = (s) =>
+                parseInt((s || "").replace(/[^0-9]/g, "")) || 0;
+            const parseLinks = (s) =>
+                (s || "")
+                    .split("\n")
+                    .map((x) => x.trim())
+                    .filter((x) => /^https?:\/\//.test(x));
 
-      return rows.slice(2)
-        .filter(r => {
-          const name  = (r[iName]  || "").trim();
-          const treat = (r[iTreat] || "").trim().toLowerCase();
-          return name && treat === "dijual";
-        })
-        .map(r => {
-          const no = (r[iNo] || "").trim();
-          return {
-            id           : parseInt(no) || 0,
-            name         : (r[iName]  || "").trim(),
-            brand        : (r[iBrand] || "").trim(),
-            description  : (r[iDesc]  || "").trim(),
-            price        : parsePrice(r[iPrice]),
-            ecommerceLinks: parseLinks(r[iLink]),
-            imageFolder  : `images/${no}`,
-          };
-        });
-    }
+            // ── Formatting ────────────────────────────────────────────
+            const formatPrice = (p) => "Rp " + p.toLocaleString("id-ID");
 
-    const parsePrice = s => parseInt((s || "").replace(/[^0-9]/g, "")) || 0;
-    const parseLinks = s => (s || "").split("\n").map(x => x.trim()).filter(x => /^https?:\/\//.test(x));
+            function buildWaLink(p) {
+                const text = encodeURIComponent(
+                    `Halo, saya tertarik dengan *${p.name}* (${formatPrice(p.price)}). Apakah masih tersedia?`,
+                );
+                return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
+            }
 
-    // ── Formatting ────────────────────────────────────────────
-    const formatPrice = p => "Rp " + p.toLocaleString("id-ID");
+            const getEcomName = (url) => {
+                try {
+                    return new URL(url).hostname.replace(/^www\./, "");
+                } catch {
+                    return "Lihat";
+                }
+            };
 
-    function buildWaLink(p) {
-      const text = encodeURIComponent(
-        `Halo, saya tertarik dengan *${p.name}* (${formatPrice(p.price)}). Apakah masih tersedia?`
-      );
-      return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
-    }
+            // ── Sold Status ───────────────────────────────────────────
+            async function fetchSoldStatus() {
+                if (
+                    !TRACKER_CSV_URL ||
+                    TRACKER_CSV_URL === "YOUR_TRACKER_CSV_URL_HERE"
+                )
+                    return new Set();
+                try {
+                    const resp = await fetch(TRACKER_CSV_URL);
+                    if (!resp.ok) return new Set();
+                    const rows = parseCSV(await resp.text());
+                    if (rows.length < 2) return new Set();
+                    const headers = rows[0].map((h) => h.trim().toLowerCase());
+                    const iId = headers.indexOf("product_id");
+                    const iSold = headers.indexOf("sold");
+                    if (iId < 0 || iSold < 0) return new Set();
+                    const s = new Set();
+                    rows.slice(1).forEach((r) => {
+                        if ((r[iSold] || "").trim().toUpperCase() === "TRUE")
+                            s.add(Number(r[iId]));
+                    });
+                    return s;
+                } catch {
+                    return new Set();
+                }
+            }
 
-    const getEcomName = url => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "Lihat"; } };
+            // ── Click Tracking ────────────────────────────────────────
+            function sendClick(productId, type) {
+                if (
+                    !APPS_SCRIPT_URL ||
+                    APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE"
+                )
+                    return;
+                const p = products.find((x) => x.id === productId);
+                const name = p ? encodeURIComponent(p.name) : "";
+                fetch(
+                    `${APPS_SCRIPT_URL}?action=click&type=${type}&id=${productId}&name=${name}`,
+                    { mode: "no-cors" },
+                ).catch(() => {});
+            }
 
-    // ── Sold Status ───────────────────────────────────────────
-    async function fetchSoldStatus() {
-      if (!TRACKER_CSV_URL || TRACKER_CSV_URL === "YOUR_TRACKER_CSV_URL_HERE") return new Set();
-      try {
-        const resp = await fetch(TRACKER_CSV_URL);
-        if (!resp.ok) return new Set();
-        const rows = parseCSV(await resp.text());
-        if (rows.length < 2) return new Set();
-        const headers = rows[0].map(h => h.trim().toLowerCase());
-        const iId   = headers.indexOf("product_id");
-        const iSold = headers.indexOf("sold");
-        if (iId < 0 || iSold < 0) return new Set();
-        const s = new Set();
-        rows.slice(1).forEach(r => {
-          if ((r[iSold] || "").trim().toUpperCase() === "TRUE") s.add(Number(r[iId]));
-        });
-        return s;
-      } catch { return new Set(); }
-    }
+            const trackWaClick = (id) => sendClick(id, "wa");
+            const trackProductClick = (id) => sendClick(id, "product");
 
-    // ── Click Tracking ────────────────────────────────────────
-    function sendClick(productId, type) {
-      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE") return;
-      const p    = products.find(x => x.id === productId);
-      const name = p ? encodeURIComponent(p.name) : "";
-      fetch(`${APPS_SCRIPT_URL}?action=click&type=${type}&id=${productId}&name=${name}`, { mode: "no-cors" }).catch(() => {});
-    }
-
-    const trackWaClick      = id => sendClick(id, "wa");
-    const trackProductClick = id => sendClick(id, "product");
-
-    // ── Carousel ──────────────────────────────────────────────
-    // Coba muat 1.jpg s/d MAX_IMG.jpg; gambar yang 404 dihapus otomatis.
-    function buildCarousel(p, prefix) {
-      const slides = Array.from({ length: MAX_IMG }, (_, i) =>
-        `<img class="carousel-slide" src="${p.imageFolder}/${i + 1}.jpg"
-             alt="${p.name}" loading="lazy" onerror="imgErr(this)">`
-      ).join("");
-      return `
+            // ── Carousel ──────────────────────────────────────────────
+            // Coba muat 1.jpg s/d MAX_IMG.jpg; gambar yang 404 dihapus otomatis.
+            function buildCarousel(p, prefix) {
+                const slides = Array.from(
+                    { length: MAX_IMG },
+                    (_, i) =>
+                        `<img class="carousel-slide" src="${p.imageFolder}/${i + 1}.jpg"
+             alt="${p.name}" loading="lazy" onerror="imgErr(this)">`,
+                ).join("");
+                return `
         <div class="carousel" id="car-${prefix}-${p.id}">
           <div class="carousel-track">${slides}</div>
           <div class="carousel-dots"></div>
         </div>`;
-    }
+            }
 
-    // global → dapat dipanggil dari onerror atribut
-    window.imgErr = function (img) {
-      const track    = img.closest(".carousel-track");
-      const carousel = img.closest(".carousel");
-      if (!track) return;
-      img.remove();
-      rebuildDots(carousel);
-    };
+            // global → dapat dipanggil dari onerror atribut
+            window.imgErr = function (img) {
+                const track = img.closest(".carousel-track");
+                const carousel = img.closest(".carousel");
+                if (!track) return;
+                img.remove();
+                rebuildDots(carousel);
+            };
 
-    function rebuildDots(carousel) {
-      const track  = carousel.querySelector(".carousel-track");
-      const dotsEl = carousel.querySelector(".carousel-dots");
-      if (!track || !dotsEl) return;
-      const imgs = track.querySelectorAll("img");
-      if (imgs.length === 0) {
-        track.innerHTML  = '<div class="carousel-placeholder">📦</div>';
-        dotsEl.innerHTML = "";
-      } else if (imgs.length === 1) {
-        dotsEl.innerHTML = "";
-      } else {
-        const cur = track.offsetWidth
-          ? Math.round(track.scrollLeft / track.offsetWidth) : 0;
-        dotsEl.innerHTML = Array.from(imgs, (_, i) =>
-          `<span class="dot${i === cur ? " active" : ""}"></span>`
-        ).join("");
-      }
-    }
+            function rebuildDots(carousel) {
+                const track = carousel.querySelector(".carousel-track");
+                const dotsEl = carousel.querySelector(".carousel-dots");
+                if (!track || !dotsEl) return;
+                const imgs = track.querySelectorAll("img");
+                if (imgs.length === 0) {
+                    track.innerHTML =
+                        '<div class="carousel-placeholder">📦</div>';
+                    dotsEl.innerHTML = "";
+                } else if (imgs.length === 1) {
+                    dotsEl.innerHTML = "";
+                } else {
+                    const cur = track.offsetWidth
+                        ? Math.round(track.scrollLeft / track.offsetWidth)
+                        : 0;
+                    dotsEl.innerHTML = Array.from(
+                        imgs,
+                        (_, i) =>
+                            `<span class="dot${i === cur ? " active" : ""}"></span>`,
+                    ).join("");
+                }
+            }
 
-    function initCarousels() {
-      document.querySelectorAll(".carousel").forEach(carousel => {
-        const track  = carousel.querySelector(".carousel-track");
-        const dotsEl = carousel.querySelector(".carousel-dots");
-        if (!track) return;
+            function initCarousels() {
+                document.querySelectorAll(".carousel").forEach((carousel) => {
+                    const track = carousel.querySelector(".carousel-track");
+                    const dotsEl = carousel.querySelector(".carousel-dots");
+                    if (!track) return;
 
-        // Build dots once first valid image loads
-        const first = track.querySelector("img");
-        if (first) {
-          const build = () => rebuildDots(carousel);
-          if (first.complete && first.naturalWidth > 0) build();
-          else first.addEventListener("load", build, { once: true });
-        }
+                    // Build dots once first valid image loads
+                    const first = track.querySelector("img");
+                    if (first) {
+                        const build = () => rebuildDots(carousel);
+                        if (first.complete && first.naturalWidth > 0) build();
+                        else
+                            first.addEventListener("load", build, {
+                                once: true,
+                            });
+                    }
 
-        // Scroll → sync active dot
-        track.addEventListener("scroll", () => {
-          const dots = dotsEl.querySelectorAll(".dot");
-          if (!dots.length || !track.offsetWidth) return;
-          const idx = Math.round(track.scrollLeft / track.offsetWidth);
-          dots.forEach((d, i) => d.classList.toggle("active", i === idx));
-        }, { passive: true });
-      });
-    }
+                    // Scroll → sync active dot
+                    track.addEventListener(
+                        "scroll",
+                        () => {
+                            const dots = dotsEl.querySelectorAll(".dot");
+                            if (!dots.length || !track.offsetWidth) return;
+                            const idx = Math.round(
+                                track.scrollLeft / track.offsetWidth,
+                            );
+                            dots.forEach((d, i) =>
+                                d.classList.toggle("active", i === idx),
+                            );
+                        },
+                        { passive: true },
+                    );
+                });
+            }
 
-    // ── Ecommerce Links ───────────────────────────────────────
-    function buildCardEcomLinks(p) {
-      if (!p.ecommerceLinks?.length) return "";
-      const parts = p.ecommerceLinks.map((url, i) => {
-        const sep = i < p.ecommerceLinks.length - 1 ? `<span class="card-ecom-sep">·</span>` : "";
-        return `<a class="card-ecom-link" href="${url}" target="_blank" rel="noopener"
+            // ── Ecommerce Links ───────────────────────────────────────
+            function buildCardEcomLinks(p) {
+                if (!p.ecommerceLinks?.length) return "";
+                const parts = p.ecommerceLinks
+                    .map((url, i) => {
+                        const sep =
+                            i < p.ecommerceLinks.length - 1
+                                ? `<span class="card-ecom-sep">·</span>`
+                                : "";
+                        return `<a class="card-ecom-link" href="${url}" target="_blank" rel="noopener"
           onclick="event.stopPropagation()">${getEcomName(url)} ↗</a>${sep}`;
-      }).join("");
-      return `<div class="card-ecom-links"><span class="card-ecom-label">Cek harga baru:</span><div>${parts}</div></div>`;
-    }
+                    })
+                    .join("");
+                return `<div class="card-ecom-links"><span class="card-ecom-label">Cek harga baru:</span><div>${parts}</div></div>`;
+            }
 
-    function buildModalEcomLinks(p) {
-      if (!p.ecommerceLinks?.length) return "";
-      return `<div class="modal-ecom-links">${p.ecommerceLinks.map(url =>
-        `<a class="modal-ecom-btn" href="${url}" target="_blank" rel="noopener">${getEcomName(url)} ↗</a>`
-      ).join("")}</div>`;
-    }
+            function buildModalEcomLinks(p) {
+                if (!p.ecommerceLinks?.length) return "";
+                return `<div class="modal-ecom-links">${p.ecommerceLinks
+                    .map(
+                        (url) =>
+                            `<a class="modal-ecom-btn" href="${url}" target="_blank" rel="noopener">${getEcomName(url)} ↗</a>`,
+                    )
+                    .join("")}</div>`;
+            }
 
-    // ── Render ────────────────────────────────────────────────
-    function renderGrid(list) {
-      const grid  = document.getElementById("productGrid");
-      const count = document.getElementById("productCount");
-      count.textContent = `Menampilkan ${list.length} produk`;
+            // ── Render ────────────────────────────────────────────────
+            function renderGrid(list) {
+                const grid = document.getElementById("productGrid");
+                const count = document.getElementById("productCount");
+                count.textContent = `Menampilkan ${list.length} produk`;
 
-      if (!list.length) {
-        grid.innerHTML = `<div class="empty-state"><div style="font-size:3rem">🔍</div><p>Produk tidak ditemukan.</p></div>`;
-        return;
-      }
+                if (!list.length) {
+                    grid.innerHTML = `<div class="empty-state"><div style="font-size:3rem">🔍</div><p>Produk tidak ditemukan.</p></div>`;
+                    return;
+                }
 
-      grid.innerHTML = list.map(p => {
-        const isSold = soldIds.has(p.id);
-        const brand  = p.brand ? `<div class="card-brand">${p.brand}</div>` : "";
-        const desc   = p.description.replace(/\n/g, "<br>");
-        const waBtn  = isSold
-          ? `<span class="btn-wa-sold">🚫 Terjual</span>`
-          : `<a class="btn-wa" href="${buildWaLink(p)}" target="_blank" rel="noopener"
+                grid.innerHTML = list
+                    .map((p) => {
+                        const isSold = soldIds.has(p.id);
+                        const brand = p.brand
+                            ? `<div class="card-brand">${p.brand}</div>`
+                            : "";
+                        const desc = p.description.replace(/\n/g, "<br>");
+                        const waBtn = isSold
+                            ? `<span class="btn-wa-sold">🚫 Terjual</span>`
+                            : `<a class="btn-wa" href="${buildWaLink(p)}" target="_blank" rel="noopener"
               onclick="event.stopPropagation(); trackWaClick(${p.id})">
               💬 Chat WA
             </a>`;
-        return `
+                        return `
           <div class="card${isSold ? " sold" : ""}" onclick="openModal(${p.id})">
             <div style="position:relative">
               ${buildCarousel(p, "card")}
@@ -283,42 +380,55 @@
               ${waBtn}
             </div>
           </div>`;
-      }).join("");
+                    })
+                    .join("");
 
-      initCarousels();
-    }
+                initCarousels();
+            }
 
-    function getFiltered() {
-      const q    = document.getElementById("searchInput").value.toLowerCase().trim();
-      const sort = document.getElementById("sortSelect").value;
-      let list   = products.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        (p.brand || "").toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q)
-      );
-      if (sort === "price-asc")  list.sort((a, b) => a.price - b.price);
-      if (sort === "price-desc") list.sort((a, b) => b.price - a.price);
-      return list;
-    }
+            function getFiltered() {
+                const q = document
+                    .getElementById("searchInput")
+                    .value.toLowerCase()
+                    .trim();
+                const sort = document.getElementById("sortSelect").value;
+                let list = products.filter(
+                    (p) =>
+                        p.name.toLowerCase().includes(q) ||
+                        (p.brand || "").toLowerCase().includes(q) ||
+                        p.description.toLowerCase().includes(q),
+                );
+                if (sort === "price-asc")
+                    list.sort((a, b) => a.price - b.price);
+                if (sort === "price-desc")
+                    list.sort((a, b) => b.price - a.price);
+                return list;
+            }
 
-    function toggleView() {
-      isListView = !isListView;
-      document.getElementById("productGrid").classList.toggle("list-view", isListView);
-      document.getElementById("viewToggle").textContent = isListView ? "⊞" : "☰";
-    }
+            function toggleView() {
+                isListView = !isListView;
+                document
+                    .getElementById("productGrid")
+                    .classList.toggle("list-view", isListView);
+                document.getElementById("viewToggle").textContent = isListView
+                    ? "⊞"
+                    : "☰";
+            }
 
-    function openModal(id) {
-      trackProductClick(id);
-      const p = products.find(x => x.id === id);
-      if (!p) return;
-      const isSold = soldIds.has(p.id);
-      const brand  = p.brand ? `<div class="modal-brand">${p.brand}</div>` : "";
-      const desc   = p.description.replace(/\n/g, "<br>");
-      const waBtn  = isSold
-        ? `<span class="btn-wa-modal-sold">🚫 Terjual</span>`
-        : `<a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener"
+            function openModal(id) {
+                trackProductClick(id);
+                const p = products.find((x) => x.id === id);
+                if (!p) return;
+                const isSold = soldIds.has(p.id);
+                const brand = p.brand
+                    ? `<div class="modal-brand">${p.brand}</div>`
+                    : "";
+                const desc = p.description.replace(/\n/g, "<br>");
+                const waBtn = isSold
+                    ? `<span class="btn-wa-modal-sold">🚫 Terjual</span>`
+                    : `<a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener"
             onclick="trackWaClick(${p.id})">💬 Chat WhatsApp</a>`;
-      document.getElementById("modalContent").innerHTML = `
+                document.getElementById("modalContent").innerHTML = `
         <div style="position:relative">
           ${buildCarousel(p, "modal")}
           ${isSold ? `<span class="sold-badge">Terjual</span>` : ""}
@@ -337,42 +447,53 @@
             </button>
           </div>
         </div>`;
-      document.getElementById("modalOverlay").classList.add("active");
-      document.body.style.overflow = "hidden";
-      initCarousels();
-    }
+                document.getElementById("modalOverlay").classList.add("active");
+                document.body.style.overflow = "hidden";
+                initCarousels();
+            }
 
-    function closeModal(e) {
-      if (e.target === document.getElementById("modalOverlay")) {
-        document.getElementById("modalOverlay").classList.remove("active");
-        document.body.style.overflow = "";
-      }
-    }
+            function closeModal(e) {
+                if (e.target === document.getElementById("modalOverlay")) {
+                    document
+                        .getElementById("modalOverlay")
+                        .classList.remove("active");
+                    document.body.style.overflow = "";
+                }
+            }
 
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape") {
-        document.getElementById("modalOverlay").classList.remove("active");
-        document.body.style.overflow = "";
-      }
-    });
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") {
+                    document
+                        .getElementById("modalOverlay")
+                        .classList.remove("active");
+                    document.body.style.overflow = "";
+                }
+            });
 
-    document.getElementById("searchInput").addEventListener("input",  () => renderGrid(getFiltered()));
-    document.getElementById("sortSelect").addEventListener("change", () => renderGrid(getFiltered()));
+            document
+                .getElementById("searchInput")
+                .addEventListener("input", () => renderGrid(getFiltered()));
+            document
+                .getElementById("sortSelect")
+                .addEventListener("change", () => renderGrid(getFiltered()));
 
-    // ── Init ──────────────────────────────────────────────────
-    (async () => {
-      try {
-        [products, soldIds] = await Promise.all([fetchProducts(), fetchSoldStatus()]);
-        renderGrid(getFiltered());
-      } catch (err) {
-        document.getElementById("productGrid").innerHTML = `
+            // ── Init ──────────────────────────────────────────────────
+            (async () => {
+                try {
+                    [products, soldIds] = await Promise.all([
+                        fetchProducts(),
+                        fetchSoldStatus(),
+                    ]);
+                    renderGrid(getFiltered());
+                } catch (err) {
+                    document.getElementById("productGrid").innerHTML = `
           <div class="empty-state">
             <div style="font-size:2rem">⚠️</div>
             <p>${err.message}</p>
           </div>`;
-        document.getElementById("productCount").textContent = "";
-      }
-    })();
-  </script>
-</body>
+                    document.getElementById("productCount").textContent = "";
+                }
+            })();
+        </script>
+    </body>
 </html>
