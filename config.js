@@ -12,10 +12,11 @@ const SHEET_CSV_URL =
 
 // URL Google Apps Script untuk tracking klik WA (lihat apps-script.js)
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxb7xb1hJoP2crVsY6wghHwI4Y0f7nWbJrAxpslQlpfBXLl1MRmHWBfBpikjwWZ45Ne/exec";
+  "https://script.google.com/macros/s/AKfycbwl2SYFnAWdAbz-pFYcewFe_qU91gW0oabZ8ti13JWAGfbmgKW_bA6Xbfah6inu0oCc/exec";
 
 // URL CSV sheet tracker (File → Share → Publish to web → pilih tab Clicks → CSV)
-const TRACKER_CSV_URL = "YOUR_TRACKER_CSV_URL_HERE";
+const TRACKER_CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3fxBlvLLcwJhhLwWGHTeFao9_FPnGPCUrs49FEm0JDJ1-oPdD02ys1_xE_jM9uKwrMgMHc0Z2-gl2/pub?gid=0&single=true&output=csv";
 
 // Password halaman dashboard
 const DASHBOARD_PASSWORD = "tiki123";
