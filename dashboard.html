@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Tiki Toko</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -113,7 +114,7 @@
     .btn-header:hover { background: rgba(255,255,255,0.35); }
 
     .dash-body {
-      max-width: 900px;
+      max-width: 1100px;
       margin: 0 auto;
       padding: 24px 16px 40px;
     }
@@ -123,7 +124,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
       gap: 14px;
-      margin-bottom: 28px;
+      margin-bottom: 20px;
     }
 
     .stat-card {
@@ -150,7 +151,31 @@
 
     .stat-card .sub { font-size: 0.78rem; color: #888; margin-top: 4px; }
 
-    /* Table */
+    /* ── CHARTS ── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .chart-card {
+      background: white;
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
+    .chart-card h3 {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+    }
+
+    /* ── TABLE ── */
     .table-wrap {
       background: white;
       border-radius: 14px;
@@ -167,7 +192,7 @@
       gap: 10px;
     }
 
-    .table-head h2 { font-size: 0.95rem; font-weight: 700; }
+    .table-head h2 { font-size: 0.95rem; font-weight: 700; flex-shrink: 0; }
 
     .updated-at { font-size: 0.75rem; color: #bbb; flex: 1; }
 
@@ -185,28 +210,67 @@
 
     .btn-reset:hover { border-color: #e53935; color: #e53935; }
 
+    .table-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .table-search {
+      flex: 1;
+      padding: 7px 12px;
+      border: 1px solid #eee;
+      border-radius: 7px;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+      min-width: 0;
+    }
+
+    .table-search:focus { border-color: #FF4081; }
+
+    .search-count { font-size: 0.75rem; color: #bbb; white-space: nowrap; flex-shrink: 0; }
+
     table { width: 100%; border-collapse: collapse; }
 
     thead th {
       background: #fafafa;
       text-align: left;
-      padding: 11px 16px;
-      font-size: 0.75rem;
+      padding: 11px 14px;
+      font-size: 0.73rem;
       color: #999;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.4px;
       border-bottom: 1px solid #f0f0f0;
+      white-space: nowrap;
     }
+
+    thead th.sortable { cursor: pointer; user-select: none; }
+    thead th.sortable:hover { color: #FF4081; }
+    thead th.sort-active { color: #FF4081; }
+
+    thead th .sort-icon {
+      display: inline-block;
+      margin-left: 3px;
+      opacity: 0.35;
+      font-style: normal;
+      font-size: 0.8em;
+    }
+
+    thead th.sort-active .sort-icon { opacity: 1; }
 
     tbody tr { border-bottom: 1px solid #f8f8f8; transition: background 0.15s; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: #fef6f9; }
 
-    tbody td { padding: 12px 16px; font-size: 0.87rem; vertical-align: middle; }
+    tbody td { padding: 11px 14px; font-size: 0.86rem; vertical-align: middle; }
 
-    .td-rank { color: #ccc; font-weight: 700; font-size: 0.8rem; width: 30px; }
-    .td-name { font-weight: 600; }
+    .td-rank  { color: #ccc; font-weight: 700; font-size: 0.78rem; width: 26px; }
+    .td-id    { color: #bbb; font-size: 0.78rem; }
+    .td-name  { font-weight: 600; }
     .td-brand { color: #aaa; font-size: 0.76rem; }
     .td-price { color: #FF4081; font-weight: 700; white-space: nowrap; }
     .td-last  { color: #bbb; font-size: 0.75rem; white-space: nowrap; }
@@ -218,17 +282,11 @@
     .bar-fill { height: 100%; background: #FF4081; border-radius: 3px; transition: width 0.5s ease; }
 
     /* States */
-    .state-box {
-      text-align: center;
-      padding: 50px 20px;
-      color: #bbb;
-    }
-
+    .state-box { text-align: center; padding: 50px 20px; color: #bbb; }
     .state-box .icon { font-size: 2.5rem; }
     .state-box p { margin-top: 10px; font-size: 0.9rem; line-height: 1.6; }
     .state-box .err { color: #e53935; font-size: 0.82rem; margin-top: 6px; }
 
-    /* Note */
     .note {
       margin-top: 20px;
       padding: 12px 16px;
@@ -240,10 +298,16 @@
       line-height: 1.6;
     }
 
+    @media (max-width: 680px) {
+      .charts-grid { grid-template-columns: 1fr; }
+    }
+
     @media (max-width: 540px) {
       .summary { grid-template-columns: repeat(2, 1fr); }
-      .td-last, thead th:nth-child(4), tbody td:nth-child(4) { display: none; }
       .dash-header { flex-wrap: wrap; }
+      /* hide ID and Terakhir on mobile */
+      thead th:nth-child(2), tbody td:nth-child(2),
+      thead th:last-child,   tbody td:last-child { display: none; }
     }
   </style>
 </head>
@@ -272,7 +336,7 @@
     <div class="dash-header">
       <div>
         <h1>🏷️ Dashboard Tiki Toko</h1>
-        <div class="subtitle">Statistik klik tombol Chat WA · Google Sheets</div>
+        <div class="subtitle">Statistik klik · Google Sheets</div>
       </div>
       <div class="header-actions">
         <button class="btn-header" onclick="loadDashboard()">↻ Refresh</button>
@@ -283,11 +347,32 @@
     <div class="dash-body">
       <div class="summary" id="summary"></div>
 
+      <div class="charts-grid" id="chartsGrid" style="display:none">
+        <div class="chart-card">
+          <h3>WA vs Buka Produk</h3>
+          <canvas id="chartDonut"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Top 10 Produk</h3>
+          <canvas id="chartBar"></canvas>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <div class="table-head">
           <h2>Klik per Produk</h2>
           <span class="updated-at" id="updatedAt"></span>
           <button class="btn-reset" onclick="resetData()">Reset data</button>
+        </div>
+        <div class="table-controls">
+          <input
+            class="table-search"
+            type="search"
+            id="tableSearch"
+            placeholder="🔍 Cari nama barang atau merk/tipe..."
+            oninput="renderTable()"
+          />
+          <span class="search-count" id="searchCount"></span>
         </div>
         <div id="tableContainer">
           <div class="state-box">
@@ -305,16 +390,7 @@
 
   <script src="config.js"></script>
   <script>
-    // ── CSV helpers (same logic as index.html) ────────────────
-    async function fetchProductsCSV() {
-      if (!SHEET_CSV_URL || SHEET_CSV_URL === "YOUR_CSV_URL_HERE") return [];
-      try {
-        const resp = await fetch(SHEET_CSV_URL);
-        if (!resp.ok) return [];
-        return csvToProducts(parseCSV(await resp.text()));
-      } catch { return []; }
-    }
-
+    // ── CSV helpers ───────────────────────────────────────────
     function parseCSV(text) {
       const rows = [];
       let row = [], field = "", inQ = false;
@@ -336,23 +412,59 @@
       return rows;
     }
 
-    function csvToProducts(rows) {
-      if (rows.length < 3) return [];
-      const headers = rows[1].map(h => h.trim().toLowerCase());
-      const col = name => headers.indexOf(name.toLowerCase());
-      const iNo = col("no"), iName = col("nama barang"), iTreat = col("treatment"),
-            iBrand = col("merk/tipe"), iPrice = col("harga");
-      return rows.slice(2)
-        .filter(r => (r[iName] || "").trim() && (r[iTreat] || "").trim().toLowerCase() === "dijual")
-        .map(r => ({
-          id   : parseInt((r[iNo] || "").trim()) || 0,
-          name : (r[iName]  || "").trim(),
-          brand: (r[iBrand] || "").trim(),
-          price: parseInt(((r[iPrice] || "")).replace(/[^0-9]/g, "")) || 0,
-        }));
+    async function fetchProductsCSV() {
+      if (!SHEET_CSV_URL || SHEET_CSV_URL === "YOUR_CSV_URL_HERE") return [];
+      try {
+        const resp = await fetch(SHEET_CSV_URL);
+        if (!resp.ok) return [];
+        const rows = parseCSV(await resp.text());
+        if (rows.length < 3) return [];
+        const headers = rows[1].map(h => h.trim().toLowerCase());
+        const col = name => headers.indexOf(name.toLowerCase());
+        const iNo = col("no"), iName = col("nama barang"), iTreat = col("treatment"),
+              iBrand = col("merk/tipe"), iPrice = col("harga");
+        return rows.slice(2)
+          .filter(r => (r[iName] || "").trim() && (r[iTreat] || "").trim().toLowerCase() === "dijual")
+          .map(r => ({
+            id   : parseInt((r[iNo]    || "").trim()) || 0,
+            name : (r[iName]  || "").trim(),
+            brand: (r[iBrand] || "").trim(),
+            price: parseInt((r[iPrice] || "").replace(/[^0-9]/g, "")) || 0,
+          }));
+      } catch { return []; }
     }
-    // ─────────────────────────────────────────────────────────
 
+    async function fetchTrackerCSV() {
+      if (!TRACKER_CSV_URL || TRACKER_CSV_URL === "YOUR_TRACKER_CSV_URL_HERE") return null;
+      try {
+        const resp = await fetch(TRACKER_CSV_URL);
+        if (!resp.ok) return [];
+        const rows = parseCSV(await resp.text());
+        if (rows.length < 2) return [];
+        const headers = rows[0].map(h => h.trim().toLowerCase());
+        const col = name => headers.indexOf(name);
+        const iId = col("product_id"), iName = col("product_name"),
+              iPc = col("product_clicks"), iWa = col("wa_clicks"), iLast = col("last_click");
+        return rows.slice(1)
+          .filter(r => r[iId])
+          .map(r => ({
+            productId    : Number(r[iId])  || 0,
+            productName  : String(r[iName] || ""),
+            productClicks: Number(r[iPc]   || 0),
+            waClicks     : Number(r[iWa]   || 0),
+            lastClick    : r[iLast]        || null,
+          }));
+      } catch { return []; }
+    }
+
+    // ── State ─────────────────────────────────────────────────
+    let allRows  = [];
+    let sortCol  = "total";
+    let sortDir  = "desc";
+    let chartDonutInst = null;
+    let chartBarInst   = null;
+
+    // ── Auth ──────────────────────────────────────────────────
     function login() {
       const pw  = document.getElementById("pwInput").value;
       const err = document.getElementById("loginError");
@@ -371,12 +483,11 @@
       document.getElementById("dashScreen").style.display  = "none";
       document.getElementById("loginScreen").style.display = "flex";
       document.getElementById("pwInput").value = "";
-      document.getElementById("loginError").textContent    = "";
+      document.getElementById("loginError").textContent = "";
     }
 
-    function formatPrice(p) {
-      return "Rp " + p.toLocaleString("id-ID");
-    }
+    // ── Formatting ────────────────────────────────────────────
+    const formatPrice = p => "Rp " + p.toLocaleString("id-ID");
 
     function formatDate(iso) {
       if (!iso) return "—";
@@ -395,122 +506,71 @@
         </div>`;
     }
 
-    async function loadDashboard() {
-      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE") {
-        showTableState("⚙️",
-          "APPS_SCRIPT_URL belum diisi.",
-          "Buka <strong>config.js</strong> dan isi dengan URL dari Google Apps Script."
-        );
-        document.getElementById("summary").innerHTML = "";
-        return;
+    // ── Sort & Filter ─────────────────────────────────────────
+    function setSort(col) {
+      sortDir = (sortCol === col && sortDir === "desc") ? "asc" : "desc";
+      if (sortCol !== col) {
+        sortDir = ["name", "brand", "last"].includes(col) ? "asc" : "desc";
       }
+      sortCol = col;
+      renderTable();
+    }
 
-      showTableState("⏳", "Memuat data...");
-      document.getElementById("updatedAt").textContent = "";
+    function getFiltered() {
+      const q = (document.getElementById("tableSearch")?.value || "").toLowerCase().trim();
+      return q
+        ? allRows.filter(r =>
+            r.name.toLowerCase().includes(q) ||
+            r.brand.toLowerCase().includes(q)
+          )
+        : [...allRows];
+    }
 
-      // Baca tracker langsung dari published CSV (cepat, tanpa cold start)
-      async function fetchTrackerCSV() {
-        if (!TRACKER_CSV_URL || TRACKER_CSV_URL === "YOUR_TRACKER_CSV_URL_HERE") return null;
-        try {
-          const resp = await fetch(TRACKER_CSV_URL);
-          if (!resp.ok) return [];
-          const rows = parseCSV(await resp.text());
-          if (rows.length < 2) return [];
-          const headers = rows[0].map(h => h.trim().toLowerCase());
-          const col = name => headers.indexOf(name);
-          const iId = col("product_id"), iName = col("product_name"),
-                iPc = col("product_clicks"), iWa = col("wa_clicks"), iLast = col("last_click");
-          return rows.slice(1)
-            .filter(r => r[iId])
-            .map(r => ({
-              productId    : Number(r[iId])   || 0,
-              productName  : String(r[iName]  || ""),
-              productClicks: Number(r[iPc]    || 0),
-              waClicks     : Number(r[iWa]    || 0),
-              lastClick    : r[iLast]         || null,
-            }));
-        } catch { return []; }
-      }
-
-      // Fetch produk dan tracker secara paralel
-      const [csvProducts, sheetsData] = await Promise.all([
-        fetchProductsCSV(),
-        fetchTrackerCSV(),
-      ]);
-
-      if (sheetsData === null) {
-        showTableState("⚙️", "TRACKER_CSV_URL belum diisi.",
-          "Publish tab Clicks sebagai CSV lalu isi <strong>config.js → TRACKER_CSV_URL</strong>.");
-        document.getElementById("summary").innerHTML = "";
-        return;
-      }
-
-      const clickMap = {};
-      (Array.isArray(sheetsData) ? sheetsData : []).forEach(row => {
-        clickMap[row.productId] = {
-          product: row.productClicks || 0,
-          wa     : row.waClicks      || 0,
-          last   : row.lastClick     || null,
-        };
+    function getSorted(list) {
+      return list.sort((a, b) => {
+        let va, vb;
+        switch (sortCol) {
+          case "id":      va = a.id;            vb = b.id;            break;
+          case "name":    va = a.name;          vb = b.name;          break;
+          case "price":   va = a.price;         vb = b.price;         break;
+          case "product": va = a.productClicks; vb = b.productClicks; break;
+          case "wa":      va = a.waClicks;      vb = b.waClicks;      break;
+          case "last":    va = a.lastClick || ""; vb = b.lastClick || ""; break;
+          default:        va = a.waClicks + a.productClicks;
+                          vb = b.waClicks + b.productClicks;
+        }
+        if (typeof va === "string") return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+        return sortDir === "asc" ? va - vb : vb - va;
       });
+    }
 
-      let productList = csvProducts;
-      if (!productList.length) {
-        productList = (Array.isArray(sheetsData) ? sheetsData : []).map(r => ({
-          id: r.productId, name: r.productName, brand: "", price: 0,
-        }));
-      }
+    function thAttr(col) {
+      const active = sortCol === col;
+      const icon   = active ? (sortDir === "asc" ? "↑" : "↓") : "↕";
+      return `class="sortable${active ? " sort-active" : ""}" onclick="setSort('${col}')"`;
+    }
 
-      const rows = productList.map(p => {
-        const c = clickMap[p.id] || { product: 0, wa: 0, last: null };
-        return {
-          id           : p.id,
-          name         : p.name,
-          brand        : p.brand || "",
-          price        : p.price,
-          productClicks: c.product,
-          waClicks     : c.wa,
-          lastClick    : c.last,
-        };
-      }).sort((a, b) => (b.waClicks + b.productClicks) - (a.waClicks + a.productClicks));
+    function thIcon(col) {
+      return `<i class="sort-icon">${sortCol === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</i>`;
+    }
 
-      const totalWa      = rows.reduce((s, r) => s + r.waClicks, 0);
-      const totalProduct = rows.reduce((s, r) => s + r.productClicks, 0);
-      const active       = rows.filter(r => r.waClicks > 0 || r.productClicks > 0).length;
-      const topProduct   = rows[0] && rows[0].waClicks > 0 ? rows[0].name : "—";
-      const maxWa        = Math.max(...rows.map(r => r.waClicks), 1);
+    function renderTable() {
+      const filtered = getFiltered();
+      const list     = getSorted(filtered);
+      const maxWa    = Math.max(...allRows.map(r => r.waClicks), 1);
+      const q        = (document.getElementById("tableSearch")?.value || "").trim();
+      const countEl  = document.getElementById("searchCount");
+      if (countEl) countEl.textContent = q ? `${list.length} hasil` : "";
 
-      // Summary
-      document.getElementById("summary").innerHTML = `
-        <div class="stat-card">
-          <div class="label">Klik Chat WA</div>
-          <div class="value">${totalWa}</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Buka Produk</div>
-          <div class="value">${totalProduct}</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Produk Diminati</div>
-          <div class="value">${active}</div>
-          <div class="sub">dari ${productList.length} produk</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Paling Diminati</div>
-          <div class="value" style="font-size:0.85rem;padding-top:6px;line-height:1.3">${topProduct}</div>
-        </div>`;
-
-      document.getElementById("updatedAt").textContent =
-        "Diperbarui: " + new Date().toLocaleTimeString("id-ID");
-
-      if (totalWa + totalProduct === 0) {
-        showTableState("📭", "Belum ada klik yang terekam.", "Bagikan link toko ke pembeli dan klik akan muncul di sini.");
+      if (!list.length) {
+        showTableState("🔍", "Tidak ada produk yang cocok.");
         return;
       }
 
-      const tbody = rows.map((r, i) => `
+      const tbody = list.map((r, i) => `
         <tr>
           <td class="td-rank">${i + 1}</td>
+          <td class="td-id">${r.id || "—"}</td>
           <td>
             <div class="td-name">${r.name}</div>
             ${r.brand ? `<div class="td-brand">${r.brand}</div>` : ""}
@@ -532,16 +592,189 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>Produk</th>
-              <th>Harga</th>
+              <th ${thAttr("id")}>ID${thIcon("id")}</th>
+              <th ${thAttr("name")}>Produk${thIcon("name")}</th>
+              <th ${thAttr("price")}>Harga${thIcon("price")}</th>
               <th style="min-width:70px">Grafik WA</th>
-              <th style="text-align:right">Buka</th>
-              <th style="text-align:right">WA</th>
-              <th>Terakhir</th>
+              <th ${thAttr("product")} style="text-align:right">Buka${thIcon("product")}</th>
+              <th ${thAttr("wa")} style="text-align:right">WA${thIcon("wa")}</th>
+              <th ${thAttr("last")}>Terakhir${thIcon("last")}</th>
             </tr>
           </thead>
           <tbody>${tbody}</tbody>
         </table>`;
+    }
+
+    // ── Charts ────────────────────────────────────────────────
+    function drawCharts(rows) {
+      const totalWa  = rows.reduce((s, r) => s + r.waClicks, 0);
+      const totalPro = rows.reduce((s, r) => s + r.productClicks, 0);
+
+      // Donut: WA vs Buka Produk
+      if (chartDonutInst) chartDonutInst.destroy();
+      chartDonutInst = new Chart(
+        document.getElementById("chartDonut").getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: ["Chat WA", "Buka Produk"],
+            datasets: [{
+              data: [totalWa, totalPro],
+              backgroundColor: ["#FF4081", "#ffb3c9"],
+              borderWidth: 0,
+            }],
+          },
+          options: {
+            cutout: "65%",
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { font: { size: 11 }, padding: 14, boxWidth: 12 },
+              },
+            },
+          },
+        }
+      );
+
+      // Horizontal stacked bar: top 10 produk
+      const top10 = [...rows]
+        .sort((a, b) => (b.waClicks + b.productClicks) - (a.waClicks + a.productClicks))
+        .slice(0, 10);
+
+      if (chartBarInst) chartBarInst.destroy();
+      chartBarInst = new Chart(
+        document.getElementById("chartBar").getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: top10.map(r => r.name.length > 24 ? r.name.slice(0, 24) + "…" : r.name),
+            datasets: [
+              {
+                label: "Chat WA",
+                data: top10.map(r => r.waClicks),
+                backgroundColor: "#FF4081",
+                borderRadius: 3,
+              },
+              {
+                label: "Buka Produk",
+                data: top10.map(r => r.productClicks),
+                backgroundColor: "#ffb3c9",
+                borderRadius: 3,
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { font: { size: 11 }, padding: 14, boxWidth: 12 },
+              },
+            },
+            scales: {
+              x: {
+                stacked: true,
+                ticks: { precision: 0, font: { size: 11 } },
+                grid: { color: "#f5f5f5" },
+              },
+              y: {
+                stacked: true,
+                ticks: { font: { size: 11 } },
+                grid: { display: false },
+              },
+            },
+          },
+        }
+      );
+    }
+
+    // ── Load ──────────────────────────────────────────────────
+    async function loadDashboard() {
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_URL_HERE") {
+        showTableState("⚙️", "APPS_SCRIPT_URL belum diisi.",
+          "Buka <strong>config.js</strong> dan isi dengan URL dari Google Apps Script.");
+        document.getElementById("summary").innerHTML = "";
+        return;
+      }
+
+      showTableState("⏳", "Memuat data...");
+      document.getElementById("updatedAt").textContent = "";
+      document.getElementById("chartsGrid").style.display = "none";
+
+      const [csvProducts, sheetsData] = await Promise.all([
+        fetchProductsCSV(),
+        fetchTrackerCSV(),
+      ]);
+
+      if (sheetsData === null) {
+        showTableState("⚙️", "TRACKER_CSV_URL belum diisi.",
+          "Publish tab Clicks sebagai CSV lalu isi <strong>config.js → TRACKER_CSV_URL</strong>.");
+        document.getElementById("summary").innerHTML = "";
+        return;
+      }
+
+      const clickMap = {};
+      (Array.isArray(sheetsData) ? sheetsData : []).forEach(row => {
+        clickMap[row.productId] = {
+          product: row.productClicks || 0,
+          wa     : row.waClicks      || 0,
+          last   : row.lastClick     || null,
+        };
+      });
+
+      let productList = csvProducts.length
+        ? csvProducts
+        : (Array.isArray(sheetsData) ? sheetsData : []).map(r => ({
+            id: r.productId, name: r.productName, brand: "", price: 0,
+          }));
+
+      allRows = productList.map(p => {
+        const c = clickMap[p.id] || { product: 0, wa: 0, last: null };
+        return {
+          id           : p.id,
+          name         : p.name,
+          brand        : p.brand || "",
+          price        : p.price,
+          productClicks: c.product,
+          waClicks     : c.wa,
+          lastClick    : c.last,
+        };
+      });
+
+      const totalWa  = allRows.reduce((s, r) => s + r.waClicks, 0);
+      const totalPro = allRows.reduce((s, r) => s + r.productClicks, 0);
+      const active   = allRows.filter(r => r.waClicks > 0 || r.productClicks > 0).length;
+      const topRow   = [...allRows]
+        .sort((a, b) => (b.waClicks + b.productClicks) - (a.waClicks + a.productClicks))[0];
+      const topName  = topRow && (topRow.waClicks + topRow.productClicks) > 0 ? topRow.name : "—";
+
+      document.getElementById("summary").innerHTML = `
+        <div class="stat-card">
+          <div class="label">Klik Chat WA</div>
+          <div class="value">${totalWa}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Buka Produk</div>
+          <div class="value">${totalPro}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Produk Diminati</div>
+          <div class="value">${active}</div>
+          <div class="sub">dari ${productList.length} produk</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Paling Diminati</div>
+          <div class="value" style="font-size:0.85rem;padding-top:6px;line-height:1.3">${topName}</div>
+        </div>`;
+
+      document.getElementById("updatedAt").textContent =
+        "Diperbarui: " + new Date().toLocaleTimeString("id-ID");
+
+      if (totalWa + totalPro > 0) {
+        document.getElementById("chartsGrid").style.display = "grid";
+        setTimeout(() => drawCharts(allRows), 50);
+      }
+
+      renderTable();
     }
 
     async function resetData() {
