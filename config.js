@@ -14,5 +14,8 @@ const SHEET_CSV_URL =
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbxb7xb1hJoP2crVsY6wghHwI4Y0f7nWbJrAxpslQlpfBXLl1MRmHWBfBpikjwWZ45Ne/exec";
 
+// URL CSV sheet tracker (File → Share → Publish to web → pilih tab Clicks → CSV)
+const TRACKER_CSV_URL = "YOUR_TRACKER_CSV_URL_HERE";
+
 // Password halaman dashboard
 const DASHBOARD_PASSWORD = "tiki123";

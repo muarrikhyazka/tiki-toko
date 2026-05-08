@@ -408,36 +408,39 @@
       showTableState("⏳", "Memuat data...");
       document.getElementById("updatedAt").textContent = "";
 
-      // Fetch Apps Script dengan timeout 12 detik
-      async function fetchAppsScript() {
-        const ctrl  = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 12000);
+      // Baca tracker langsung dari published CSV (cepat, tanpa cold start)
+      async function fetchTrackerCSV() {
+        if (!TRACKER_CSV_URL || TRACKER_CSV_URL === "YOUR_TRACKER_CSV_URL_HERE") return null;
         try {
-          const r = await fetch(`${APPS_SCRIPT_URL}?action=getData`, { signal: ctrl.signal });
-          return await r.json();
-        } catch (err) {
-          if (err.name === "AbortError") return { _timeout: true };
-          return [];
-        } finally {
-          clearTimeout(timer);
-        }
+          const resp = await fetch(TRACKER_CSV_URL);
+          if (!resp.ok) return [];
+          const rows = parseCSV(await resp.text());
+          if (rows.length < 2) return [];
+          const headers = rows[0].map(h => h.trim().toLowerCase());
+          const col = name => headers.indexOf(name);
+          const iId = col("product_id"), iName = col("product_name"),
+                iPc = col("product_clicks"), iWa = col("wa_clicks"), iLast = col("last_click");
+          return rows.slice(1)
+            .filter(r => r[iId])
+            .map(r => ({
+              productId    : Number(r[iId])   || 0,
+              productName  : String(r[iName]  || ""),
+              productClicks: Number(r[iPc]    || 0),
+              waClicks     : Number(r[iWa]    || 0),
+              lastClick    : r[iLast]         || null,
+            }));
+        } catch { return []; }
       }
 
-      // Fetch produk dari CSV dan klik dari Apps Script secara paralel
+      // Fetch produk dan tracker secara paralel
       const [csvProducts, sheetsData] = await Promise.all([
         fetchProductsCSV(),
-        fetchAppsScript(),
+        fetchTrackerCSV(),
       ]);
 
-      if (sheetsData && sheetsData._timeout) {
-        showTableState("⏱️", "Koneksi ke Apps Script timeout (>12 detik).",
-          "Pastikan Apps Script sudah di-deploy sebagai Web App dan sheet \"Clicks\" sudah ada.");
-        document.getElementById("summary").innerHTML = "";
-        return;
-      }
-
-      if (sheetsData && sheetsData.error) {
-        showTableState("⚠️", "Gagal mengambil data klik.", `Error: ${sheetsData.error}`);
+      if (sheetsData === null) {
+        showTableState("⚙️", "TRACKER_CSV_URL belum diisi.",
+          "Publish tab Clicks sebagai CSV lalu isi <strong>config.js → TRACKER_CSV_URL</strong>.");
         document.getElementById("summary").innerHTML = "";
         return;
       }
