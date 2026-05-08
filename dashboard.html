@@ -281,6 +281,45 @@
     .bar { height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; min-width: 50px; }
     .bar-fill { height: 100%; background: #FF4081; border-radius: 3px; transition: width 0.5s ease; }
 
+    tbody tr.row-sold { opacity: 0.5; }
+    tbody tr.row-sold:hover { opacity: 0.7; }
+
+    .badge-sold {
+      display: inline-block;
+      background: #e0e0e0;
+      color: #888;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+
+    .btn-mark-sold {
+      border: 1px solid #ddd;
+      background: none;
+      color: #aaa;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .btn-mark-sold:hover { border-color: #FF4081; color: #FF4081; }
+
+    .btn-mark-sold.is-sold {
+      background: #f0f0f0;
+      border-color: transparent;
+      color: #bbb;
+    }
+
+    .btn-mark-sold.is-sold:hover { border-color: #e53935; color: #e53935; background: white; }
+
     /* States */
     .state-box { text-align: center; padding: 50px 20px; color: #bbb; }
     .state-box .icon { font-size: 2.5rem; }
@@ -444,7 +483,8 @@
         const headers = rows[0].map(h => h.trim().toLowerCase());
         const col = name => headers.indexOf(name);
         const iId = col("product_id"), iName = col("product_name"),
-              iPc = col("product_clicks"), iWa = col("wa_clicks"), iLast = col("last_click");
+              iPc = col("product_clicks"), iWa = col("wa_clicks"),
+              iLast = col("last_click"),   iSold = col("sold");
         return rows.slice(1)
           .filter(r => r[iId])
           .map(r => ({
@@ -453,6 +493,7 @@
             productClicks: Number(r[iPc]   || 0),
             waClicks     : Number(r[iWa]   || 0),
             lastClick    : r[iLast]        || null,
+            sold         : (r[iSold] || "").trim().toUpperCase() === "TRUE",
           }));
       } catch { return []; }
     }
@@ -568,11 +609,14 @@
       }
 
       const tbody = list.map((r, i) => `
-        <tr>
+        <tr class="${r.sold ? "row-sold" : ""}">
           <td class="td-rank">${i + 1}</td>
           <td class="td-id">${r.id || "—"}</td>
           <td>
-            <div class="td-name">${r.name}</div>
+            <div class="td-name">
+              ${r.name}
+              ${r.sold ? `<span class="badge-sold">Terjual</span>` : ""}
+            </div>
             ${r.brand ? `<div class="td-brand">${r.brand}</div>` : ""}
           </td>
           <td class="td-price">${formatPrice(r.price)}</td>
@@ -584,6 +628,12 @@
           <td class="td-clicks ${r.productClicks > 0 ? "nonzero" : "zero"}">${r.productClicks}</td>
           <td class="td-clicks ${r.waClicks > 0 ? "nonzero" : "zero"}">${r.waClicks}</td>
           <td class="td-last">${formatDate(r.lastClick)}</td>
+          <td>
+            ${r.sold
+              ? `<button class="btn-mark-sold is-sold" onclick="toggleSold(${r.id},'${r.name.replace(/'/g,"\\'")}',false)">Batalkan</button>`
+              : `<button class="btn-mark-sold" onclick="toggleSold(${r.id},'${r.name.replace(/'/g,"\\'")}',true)">Tandai Terjual</button>`
+            }
+          </td>
         </tr>`
       ).join("");
 
@@ -599,6 +649,7 @@
               <th ${thAttr("product")} style="text-align:right">Buka${thIcon("product")}</th>
               <th ${thAttr("wa")} style="text-align:right">WA${thIcon("wa")}</th>
               <th ${thAttr("last")}>Terakhir${thIcon("last")}</th>
+              <th>Aksi</th>
             </tr>
           </thead>
           <tbody>${tbody}</tbody>
@@ -718,6 +769,7 @@
           product: row.productClicks || 0,
           wa     : row.waClicks      || 0,
           last   : row.lastClick     || null,
+          sold   : row.sold          || false,
         };
       });
 
@@ -728,7 +780,7 @@
           }));
 
       allRows = productList.map(p => {
-        const c = clickMap[p.id] || { product: 0, wa: 0, last: null };
+        const c = clickMap[p.id] || { product: 0, wa: 0, last: null, sold: false };
         return {
           id           : p.id,
           name         : p.name,
@@ -737,6 +789,7 @@
           productClicks: c.product,
           waClicks     : c.wa,
           lastClick    : c.last,
+          sold         : c.sold,
         };
       });
 
@@ -774,6 +827,14 @@
         setTimeout(() => drawCharts(allRows), 50);
       }
 
+      renderTable();
+    }
+
+    async function toggleSold(id, name, isSold) {
+      const action = isSold ? "markSold" : "unmarkSold";
+      fetch(`${APPS_SCRIPT_URL}?action=${action}&id=${id}&name=${encodeURIComponent(name)}`, { mode: "no-cors" }).catch(() => {});
+      const row = allRows.find(r => r.id === id);
+      if (row) row.sold = isSold;
       renderTable();
     }
 

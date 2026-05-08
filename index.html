@@ -48,6 +48,7 @@
   <script>
     // ── State ─────────────────────────────────────────────────
     let products   = [];
+    let soldIds    = new Set();
     let isListView = false;
     const MAX_IMG  = 6; // coba muat 1.jpg s/d MAX_IMG.jpg per produk
 
@@ -130,6 +131,26 @@
     }
 
     const getEcomName = url => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "Lihat"; } };
+
+    // ── Sold Status ───────────────────────────────────────────
+    async function fetchSoldStatus() {
+      if (!TRACKER_CSV_URL || TRACKER_CSV_URL === "YOUR_TRACKER_CSV_URL_HERE") return new Set();
+      try {
+        const resp = await fetch(TRACKER_CSV_URL);
+        if (!resp.ok) return new Set();
+        const rows = parseCSV(await resp.text());
+        if (rows.length < 2) return new Set();
+        const headers = rows[0].map(h => h.trim().toLowerCase());
+        const iId   = headers.indexOf("product_id");
+        const iSold = headers.indexOf("sold");
+        if (iId < 0 || iSold < 0) return new Set();
+        const s = new Set();
+        rows.slice(1).forEach(r => {
+          if ((r[iSold] || "").trim().toUpperCase() === "TRUE") s.add(Number(r[iId]));
+        });
+        return s;
+      } catch { return new Set(); }
+    }
 
     // ── Click Tracking ────────────────────────────────────────
     function sendClick(productId, type) {
@@ -238,21 +259,26 @@
       }
 
       grid.innerHTML = list.map(p => {
-        const brand = p.brand ? `<div class="card-brand">${p.brand}</div>` : "";
-        const desc  = p.description.replace(/\n/g, "<br>");
+        const isSold = soldIds.has(p.id);
+        const brand  = p.brand ? `<div class="card-brand">${p.brand}</div>` : "";
+        const desc   = p.description.replace(/\n/g, "<br>");
+        const waBtn  = isSold
+          ? `<span class="btn-wa-sold">🚫 Terjual</span>`
+          : `<a class="btn-wa" href="${buildWaLink(p)}" target="_blank" rel="noopener"
+              onclick="event.stopPropagation(); trackWaClick(${p.id})">
+              💬 Chat WA
+            </a>`;
         return `
-          <div class="card" onclick="openModal(${p.id})">
+          <div class="card${isSold ? " sold" : ""}" onclick="openModal(${p.id})">
             ${buildCarousel(p, "card")}
             <div class="card-body">
+              ${isSold ? `<span class="sold-badge">Terjual</span>` : ""}
               <div class="card-name">${p.name}</div>
               ${brand}
               <div class="card-price">${formatPrice(p.price)}</div>
               <div class="card-desc">${desc}</div>
               ${buildCardEcomLinks(p)}
-              <a class="btn-wa" href="${buildWaLink(p)}" target="_blank" rel="noopener"
-                onclick="event.stopPropagation(); trackWaClick(${p.id})">
-                💬 Chat WA
-              </a>
+              ${waBtn}
             </div>
           </div>`;
       }).join("");
@@ -283,19 +309,24 @@
       trackProductClick(id);
       const p = products.find(x => x.id === id);
       if (!p) return;
-      const brand = p.brand ? `<div class="modal-brand">${p.brand}</div>` : "";
-      const desc  = p.description.replace(/\n/g, "<br>");
+      const isSold = soldIds.has(p.id);
+      const brand  = p.brand ? `<div class="modal-brand">${p.brand}</div>` : "";
+      const desc   = p.description.replace(/\n/g, "<br>");
+      const waBtn  = isSold
+        ? `<span class="btn-wa-modal-sold">🚫 Terjual</span>`
+        : `<a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener"
+            onclick="trackWaClick(${p.id})">💬 Chat WhatsApp</a>`;
       document.getElementById("modalContent").innerHTML = `
         ${buildCarousel(p, "modal")}
         <div class="modal-body">
+          ${isSold ? `<span class="sold-badge">Terjual</span>` : ""}
           <div class="modal-name">${p.name}</div>
           ${brand}
           <div class="modal-price">${formatPrice(p.price)}</div>
           ${buildModalEcomLinks(p)}
           <div class="modal-desc">${desc}</div>
           <div class="modal-actions">
-            <a class="btn-wa-modal" href="${buildWaLink(p)}" target="_blank" rel="noopener"
-              onclick="trackWaClick(${p.id})">💬 Chat WhatsApp</a>
+            ${waBtn}
             <button class="btn-close"
               onclick="document.getElementById('modalOverlay').classList.remove('active');document.body.style.overflow=''">
               Tutup
@@ -327,7 +358,7 @@
     // ── Init ──────────────────────────────────────────────────
     (async () => {
       try {
-        products = await fetchProducts();
+        [products, soldIds] = await Promise.all([fetchProducts(), fetchSoldStatus()]);
         renderGrid(getFiltered());
       } catch (err) {
         document.getElementById("productGrid").innerHTML = `

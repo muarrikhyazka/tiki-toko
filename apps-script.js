@@ -5,14 +5,15 @@
  *  CARA SETUP (lakukan sekali saja):
  * ═══════════════════════════════════════════════════
  *
- *  1. Buka Google Sheets → buat spreadsheet baru (TERPISAH dari sheet produk)
+ *  1. Buka Google Sheets → buka spreadsheet tracker
  *     Rename tab pertama menjadi persis: Clicks
  *     Isi baris 1 (header):
- *       A1: product_id  |  B1: product_name  |  C1: product_clicks  |  D1: wa_clicks  |  E1: last_click
+ *       A1: product_id  |  B1: product_name  |  C1: product_clicks
+ *       D1: wa_clicks   |  E1: last_click     |  F1: sold
  *
  *  2. Di Google Sheets: Extensions → Apps Script
  *     Hapus semua kode yang ada
- *     Paste SELURUH kode di file ini (mulai dari "const SHEET_NAME" ke bawah)
+ *     Paste SELURUH kode di file ini
  *     Simpan dengan nama project: Tiki Toko Tracker  (Ctrl+S)
  *
  *  3. Klik "Deploy" → "New deployment"
@@ -56,6 +57,19 @@ function doGet(e) {
       return jsonOut({ success: true });
     }
 
+    if (action === "markSold") {
+      const id   = parseInt(e.parameter.id) || 0;
+      const name = (e.parameter.name || "").trim();
+      if (id > 0) setSold(sheet, id, name, true);
+      return jsonOut({ success: true });
+    }
+
+    if (action === "unmarkSold") {
+      const id = parseInt(e.parameter.id) || 0;
+      if (id > 0) setSold(sheet, id, "", false);
+      return jsonOut({ success: true });
+    }
+
     if (action === "getData") {
       return jsonOut(getAllData(sheet));
     }
@@ -90,7 +104,21 @@ function recordClick(sheet, productId, productName, clickType) {
   // Produk baru
   const pClicks = clickType === "product" ? 1 : 0;
   const wClicks = clickType === "wa"      ? 1 : 0;
-  sheet.appendRow([productId, productName, pClicks, wClicks, new Date()]);
+  sheet.appendRow([productId, productName, pClicks, wClicks, new Date(), false]); // col F: sold
+}
+
+function setSold(sheet, productId, productName, isSold) {
+  const values = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < values.length; i++) {
+    if (Number(values[i][0]) === productId) {
+      sheet.getRange(i + 1, 6).setValue(isSold); // sold (col F)
+      return;
+    }
+  }
+
+  // Produk belum ada di sheet — buat baris baru
+  sheet.appendRow([productId, productName, 0, 0, new Date(), isSold]);
 }
 
 function getAllData(sheet) {
@@ -101,11 +129,12 @@ function getAllData(sheet) {
     const row = values[i];
     if (!row[0]) continue;
     result.push({
-      productId     : Number(row[0]),
-      productName   : String(row[1] || ""),
-      productClicks : Number(row[2] || 0),
-      waClicks      : Number(row[3] || 0),
-      lastClick     : row[4] instanceof Date ? row[4].toISOString() : null,
+      productId    : Number(row[0]),
+      productName  : String(row[1] || ""),
+      productClicks: Number(row[2] || 0),
+      waClicks     : Number(row[3] || 0),
+      lastClick    : row[4] instanceof Date ? row[4].toISOString() : null,
+      sold         : row[5] === true || row[5] === "TRUE",
     });
   }
   return result;
@@ -113,7 +142,7 @@ function getAllData(sheet) {
 
 function clearData(sheet) {
   const last = sheet.getLastRow();
-  if (last > 1) sheet.getRange(2, 1, last - 1, 5).clearContent();
+  if (last > 1) sheet.getRange(2, 1, last - 1, 6).clearContent();
 }
 
 function jsonOut(obj) {
