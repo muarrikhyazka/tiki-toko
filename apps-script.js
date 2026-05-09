@@ -79,11 +79,33 @@ function doGet(e) {
       return jsonOut({ success: true });
     }
 
+    if (action === "setup") {
+      setupFormats(sheet);
+      return jsonOut({ success: true, message: "Format kolom sudah diperbaiki." });
+    }
+
     return jsonOut({ status: "ok", sheet: SHEET_NAME });
 
   } catch (err) {
     return jsonOut({ error: err.message });
   }
+}
+
+function safeInt(val) {
+  // Aman membaca nilai dari sheet: tangani Date object, string, null, dll.
+  if (val instanceof Date) return 0;
+  const n = parseInt(val);
+  return isNaN(n) || n < 0 ? 0 : n;
+}
+
+function setupFormats(sheet) {
+  // Paksa format kolom agar tidak auto-convert angka jadi tanggal
+  sheet.getRange("A:A").setNumberFormat("0");          // product_id  → angka
+  sheet.getRange("B:B").setNumberFormat("@");          // product_name → teks
+  sheet.getRange("C:C").setNumberFormat("0");          // product_clicks → angka
+  sheet.getRange("D:D").setNumberFormat("0");          // wa_clicks → angka
+  sheet.getRange("E:E").setNumberFormat("yyyy-MM-dd HH:mm:ss"); // last_click → datetime
+  sheet.getRange("F:F").setNumberFormat("@");          // sold → teks
 }
 
 function recordClick(sheet, productId, productName, clickType) {
@@ -92,19 +114,20 @@ function recordClick(sheet, productId, productName, clickType) {
   for (let i = 1; i < values.length; i++) {
     if (Number(values[i][0]) === productId) {
       if (clickType === "product") {
-        sheet.getRange(i + 1, 3).setValue(Number(values[i][2]) + 1); // product_clicks (col C)
+        sheet.getRange(i + 1, 3).setValue(safeInt(values[i][2]) + 1); // product_clicks (col C)
       } else {
-        sheet.getRange(i + 1, 4).setValue(Number(values[i][3]) + 1); // wa_clicks (col D)
+        sheet.getRange(i + 1, 4).setValue(safeInt(values[i][3]) + 1); // wa_clicks (col D)
       }
       sheet.getRange(i + 1, 5).setValue(new Date()); // last_click (col E)
       return;
     }
   }
 
-  // Produk baru
+  // Produk baru — append lalu pastikan format kolom benar
   const pClicks = clickType === "product" ? 1 : 0;
   const wClicks = clickType === "wa"      ? 1 : 0;
-  sheet.appendRow([productId, productName, pClicks, wClicks, new Date(), false]); // col F: sold
+  sheet.appendRow([productId, productName, pClicks, wClicks, new Date(), false]);
+  setupFormats(sheet); // cegah auto-format Date pada baris baru
 }
 
 function setSold(sheet, productId, productName, isSold) {
@@ -143,6 +166,7 @@ function getAllData(sheet) {
 function clearData(sheet) {
   const last = sheet.getLastRow();
   if (last > 1) sheet.getRange(2, 1, last - 1, 6).clearContent();
+  setupFormats(sheet); // reset format setelah clear agar kolom tidak kembali ke Date
 }
 
 function jsonOut(obj) {
