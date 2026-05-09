@@ -3,7 +3,7 @@
 fb_marketplace.py — Post produk Tiki Toko ke Facebook Marketplace
 
 Install:
-    pip install playwright python-dotenv
+    pip install playwright python-dotenv requests
     playwright install chromium
 
 Setup:
@@ -24,8 +24,9 @@ import json
 import os
 import random
 import time
-import urllib.request
 from pathlib import Path
+
+import requests
 
 from dotenv import load_dotenv
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
@@ -36,7 +37,7 @@ load_dotenv()
 
 # ── KONFIGURASI ───────────────────────────────────────────────
 # Salin SHEET_CSV_URL dari config.js
-SHEET_CSV_URL = "YOUR_SHEET_CSV_URL_HERE"
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQV0L-hM14XJNMDkqPi_9j3WV-zXIhzTm7-rRcVM8_XLavMXoeAV7T3Wv3V5s4rGuRvd6HtkMDuPw5r/pub?gid=457971488&single=true&output=csv"
 
 # Akun Facebook — dibaca dari .env (FB_EMAIL dan FB_PASSWORD)
 FB_EMAIL      = os.getenv("FB_EMAIL", "")
@@ -58,12 +59,9 @@ IMAGE_EXTS     = {".jpg", ".jpeg", ".png", ".webp"}
 
 def fetch_products() -> list[dict]:
     print("Mengambil data produk dari Google Sheet...")
-    req = urllib.request.Request(
-        SHEET_CSV_URL,
-        headers={"User-Agent": "Mozilla/5.0"},
-    )
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        text = resp.read().decode("utf-8")
+    resp = requests.get(SHEET_CSV_URL, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+    resp.raise_for_status()
+    text = resp.text
 
     rows = list(csv_module.reader(io.StringIO(text)))
     if len(rows) < 3:
