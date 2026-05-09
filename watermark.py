@@ -42,6 +42,11 @@ OPACITY          = 180             # transparansi: 0 (tidak terlihat) – 255 (s
 POSITION         = "center"        # top-left | top-right | bottom-left | bottom-right | center
 MARGIN           = 20              # jarak dari tepi (px) — untuk posisi selain center
 TEXT_COLOR       = (255, 255, 255) # warna teks RGB (putih)
+
+IMG_MAX_DIM      = 1920            # sisi terpanjang gambar output (px) — cukup untuk 4K retina
+IMG_QUALITY      = 85              # kualitas JPEG: 95=besar, 85=bagus+hemat, 75=kecil
+VID_MAX_DIM      = 1920            # sisi terpanjang video output (px) — 1080p/vertikal
+VID_CRF          = 26              # kualitas H.264: 18=sangat bagus, 23=default, 28=kecil
 # ─────────────────────────────────────────────────────────────
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
@@ -108,6 +113,11 @@ def calc_xy(img_w: int, img_h: int, tw: int, th: int) -> tuple[int, int]:
 def watermark_image(path: Path) -> Path:
     """Tambah watermark dan simpan sebagai JPEG. Return path output (selalu .jpg)."""
     img = Image.open(path)
+
+    # Resize jika melebihi IMG_MAX_DIM (jaga aspek rasio, tidak pernah upscale)
+    if max(img.width, img.height) > IMG_MAX_DIM:
+        img.thumbnail((IMG_MAX_DIM, IMG_MAX_DIM), Image.LANCZOS)
+
     img_rgba = img.convert("RGBA")
 
     overlay = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
@@ -127,7 +137,7 @@ def watermark_image(path: Path) -> Path:
 
     # Selalu simpan sebagai JPEG agar konsisten dengan yang diharapkan website (1.jpg, 2.jpg, ...)
     jpg_path = path.with_suffix(".jpg")
-    result.convert("RGB").save(jpg_path, "JPEG", quality=95, optimize=True)
+    result.convert("RGB").save(jpg_path, "JPEG", quality=IMG_QUALITY, optimize=True)
 
     # Hapus file asli kalau ekstensinya berbeda (misal .png, .webp)
     if path != jpg_path:
@@ -166,20 +176,37 @@ def _overlay_expr() -> str:
     }.get(POSITION, "x=(W-w)/2:y=(H-h)/2")
 
 
+def _scaled_video_dim(w: int, h: int) -> tuple[int, int]:
+    """Hitung dimensi output setelah scale-down ke VID_MAX_DIM (tidak pernah upscale)."""
+    if max(w, h) <= VID_MAX_DIM:
+        return w, h
+    scale = VID_MAX_DIM / max(w, h)
+    return int(w * scale), int(h * scale)
+
+
 def watermark_video(path: Path) -> None:
     """Tambah watermark ke video menggunakan ffmpeg overlay (tidak butuh freetype)."""
     w, h   = get_video_size(path)
+    sw, sh = _scaled_video_dim(w, h)   # dimensi setelah kompresi
     wm_png = path.with_name("__wm_overlay.png")
     tmp    = path.with_suffix(".wm_tmp" + path.suffix)
+
+    # Filter scale: kurangi resolusi jika perlu, pastikan dimensi genap (syarat H.264)
+    scale_filter = (
+        f"scale='trunc(min({VID_MAX_DIM},iw)/2)*2':'trunc(min({VID_MAX_DIM},ih)/2)*2'"
+        ":force_original_aspect_ratio=decrease"
+    )
+
     try:
-        _make_watermark_png(wm_png, adaptive_font_size(w, h))
+        _make_watermark_png(wm_png, adaptive_font_size(sw, sh))
         cmd = [
             "ffmpeg",
             "-i", str(path),
             "-i", str(wm_png),
-            "-filter_complex", f"overlay={_overlay_expr()}",
+            "-filter_complex", f"[0:v]{scale_filter}[s];[s][1:v]overlay={_overlay_expr()}",
+            "-c:v", "libx264",
             "-c:a", "copy",
-            "-crf", "23",
+            "-crf", str(VID_CRF),
             "-preset", "fast",
             "-loglevel", "error",
             "-y", str(tmp),
