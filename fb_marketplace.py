@@ -30,6 +30,10 @@ from playwright.sync_api import sync_playwright
 # Salin SHEET_CSV_URL dari config.js
 SHEET_CSV_URL = "YOUR_SHEET_CSV_URL_HERE"
 
+# Akun Facebook (opsional — isi untuk auto-login, kosongkan untuk login manual)
+FB_EMAIL      = "YOUR_EMAIL_HERE"
+FB_PASSWORD   = "YOUR_PASSWORD_HERE"
+
 IMAGES_DIR    = Path("images")           # folder foto lokal (images/{no}/1.jpg ...)
 SESSION_FILE  = Path("fb_session.json")  # cookies login tersimpan
 POSTED_FILE   = Path("fb_posted.json")   # ID produk yang sudah dipost
@@ -151,10 +155,41 @@ def ensure_logged_in(page, context):
         save_session(context)
         return
 
-    print("\n⚠  Belum login ke Facebook.")
-    print("   Browser sudah terbuka — silakan login secara manual.")
-    print("   Setelah berhasil masuk, tekan Enter di sini untuk melanjutkan...")
-    input()
+    # Coba auto-login jika kredensial sudah diisi di konfigurasi
+    has_creds = (
+        FB_EMAIL and FB_EMAIL != "YOUR_EMAIL_HERE" and
+        FB_PASSWORD and FB_PASSWORD != "YOUR_PASSWORD_HERE"
+    )
+
+    if has_creds:
+        print("  Mencoba auto-login...")
+        try:
+            page.locator('#email').fill(FB_EMAIL)
+            _delay(0.5, 1)
+            page.locator('#pass').fill(FB_PASSWORD)
+            _delay(0.5, 1)
+            page.locator('[name="login"]').click()
+            _delay(5, 8)
+            # Verifikasi berhasil login
+            page.get_by_role("button", name="Log In", exact=False).wait_for(timeout=5000)
+            # Masih ada tombol login → gagal
+            print("  ⚠  Auto-login gagal (mungkin ada verifikasi tambahan).")
+            has_creds = False
+        except PlaywrightTimeout:
+            # Tombol login sudah hilang → berhasil
+            print("✓ Auto-login berhasil.")
+            save_session(context)
+            return
+        except Exception as e:
+            print(f"  ⚠  Auto-login error: {e}")
+            has_creds = False
+
+    if not has_creds:
+        print("\n⚠  Belum login ke Facebook.")
+        print("   Browser sudah terbuka — silakan login secara manual.")
+        print("   Setelah berhasil masuk, tekan Enter di sini untuk melanjutkan...")
+        input()
+
     save_session(context)
     print("✓ Login berhasil.")
 
