@@ -82,9 +82,9 @@ def calc_xy(img_w: int, img_h: int, tw: int, th: int) -> tuple[int, int]:
 
 # ── Watermark ─────────────────────────────────────────────────
 
-def watermark_image(path: Path) -> None:
+def watermark_image(path: Path) -> Path:
+    """Tambah watermark dan simpan sebagai JPEG. Return path output (selalu .jpg)."""
     img = Image.open(path)
-    orig_mode = img.mode
     img_rgba = img.convert("RGBA")
 
     overlay = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
@@ -102,15 +102,15 @@ def watermark_image(path: Path) -> None:
 
     result = Image.alpha_composite(img_rgba, overlay)
 
-    ext = path.suffix.lower()
-    if ext in {".jpg", ".jpeg"}:
-        result.convert("RGB").save(path, "JPEG", quality=95, optimize=True)
-    elif ext == ".webp":
-        result.save(path, "WEBP", quality=90)
-    elif ext == ".bmp":
-        result.convert(orig_mode).save(path, "BMP")
-    else:
-        result.save(path)
+    # Selalu simpan sebagai JPEG agar konsisten dengan yang diharapkan website (1.jpg, 2.jpg, ...)
+    jpg_path = path.with_suffix(".jpg")
+    result.convert("RGB").save(jpg_path, "JPEG", quality=95, optimize=True)
+
+    # Hapus file asli kalau ekstensinya berbeda (misal .png, .webp)
+    if path != jpg_path:
+        path.unlink()
+
+    return jpg_path
 
 
 def ffmpeg_pos_expr() -> str:
@@ -253,8 +253,8 @@ def process_folder(folder_path: Path, ffmpeg_ok: bool) -> tuple[int, int]:
         print(f"  [{i:2}/{total}] {kind}  {path.name[:42]:<42} ", end="", flush=True)
         try:
             if kind == "IMG":
-                watermark_image(path)
-                ok_images.append(path)
+                out = watermark_image(path)
+                ok_images.append(out)
             else:
                 watermark_video(path)
                 ok_videos.append(path)
