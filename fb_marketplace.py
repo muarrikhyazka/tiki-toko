@@ -186,6 +186,9 @@ def ensure_logged_in(page, context):
             page.locator('[aria-label="Log in"]').click()
             _delay(5, 8)
 
+            # Cek reCAPTCHA / checkpoint sebelum verifikasi login
+            _handle_captcha_if_present(page)
+
             # Verifikasi berhasil login: tombol Login sudah hilang
             page.get_by_role("button", name="Log In", exact=False).wait_for(timeout=5000)
             # Masih ada tombol login → gagal
@@ -208,6 +211,27 @@ def ensure_logged_in(page, context):
 
     save_session(context)
     print("✓ Login berhasil.")
+
+
+def _handle_captcha_if_present(page) -> None:
+    """Deteksi reCAPTCHA / checkpoint Facebook, minta user solve manual lalu lanjut."""
+    url = page.url
+
+    # Deteksi via URL checkpoint atau elemen reCAPTCHA iframe
+    is_checkpoint = "checkpoint" in url or "captcha" in url
+    if not is_checkpoint:
+        try:
+            page.frame_locator('iframe[src*="recaptcha"]').locator(".recaptcha-checkbox").wait_for(timeout=3000)
+            is_checkpoint = True
+        except PlaywrightTimeout:
+            pass
+
+    if is_checkpoint:
+        print("\n🔒 reCAPTCHA / security check terdeteksi.")
+        print("   Centang checkbox di browser, selesaikan verifikasi jika ada.")
+        print("   Setelah selesai, tekan Enter di sini untuk melanjutkan...")
+        input()
+        _delay(2, 3)
 
 
 # ── Helpers ───────────────────────────────────────────────────
