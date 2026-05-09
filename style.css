@@ -287,6 +287,32 @@ header {
   background: white;
 }
 
+.carousel-prev,
+.carousel-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s;
+}
+.carousel-prev:hover,
+.carousel-next:hover { background: rgba(0, 0, 0, 0.65); }
+.carousel-prev { left: 8px; }
+.carousel-next { right: 8px; }
+
 /* ── CARD BODY ── */
 .card-body {
   padding: 10px 12px 12px;

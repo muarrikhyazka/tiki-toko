@@ -241,10 +241,16 @@
                         `<img class="carousel-slide" src="${p.imageFolder}/${i + 1}.jpg"
              alt="${p.name}" loading="lazy" onerror="imgErr(this)">`,
                 ).join("");
+                const navBtns =
+                    prefix === "modal"
+                        ? `<button class="carousel-prev" onclick="carouselNav(this,-1)" aria-label="Sebelumnya" hidden>&#8249;</button>
+          <button class="carousel-next" onclick="carouselNav(this,1)" aria-label="Berikutnya" hidden>&#8250;</button>`
+                        : "";
                 return `
         <div class="carousel" id="car-${prefix}-${p.id}">
           <div class="carousel-track">${slides}</div>
           <div class="carousel-dots"></div>
+          ${navBtns}
         </div>`;
             }
 
@@ -253,30 +259,62 @@
                 const track = img.closest(".carousel-track");
                 const carousel = img.closest(".carousel");
                 if (!track) return;
+                // Try mp4 fallback before removing
+                if (!img.dataset.mp4tried) {
+                    img.dataset.mp4tried = "1";
+                    const mp4src = (img.getAttribute("src") || "").replace(/\.[^.]+$/, ".mp4");
+                    const video = document.createElement("video");
+                    video.className = "carousel-slide";
+                    video.muted = true;
+                    video.loop = true;
+                    video.playsInline = true;
+                    video.src = mp4src;
+                    video.addEventListener("error", () => { video.remove(); rebuildDots(carousel); }, { once: true });
+                    img.parentNode.insertBefore(video, img);
+                    img.remove();
+                    rebuildDots(carousel);
+                    return;
+                }
                 img.remove();
                 rebuildDots(carousel);
+            };
+
+            window.carouselNav = function (btn, dir) {
+                const carousel = btn.closest(".carousel");
+                if (!carousel) return;
+                const track = carousel.querySelector(".carousel-track");
+                if (!track || !track.offsetWidth) return;
+                track.scrollBy({ left: dir * track.offsetWidth, behavior: "smooth" });
             };
 
             function rebuildDots(carousel) {
                 const track = carousel.querySelector(".carousel-track");
                 const dotsEl = carousel.querySelector(".carousel-dots");
                 if (!track || !dotsEl) return;
-                const imgs = track.querySelectorAll("img");
-                if (imgs.length === 0) {
+                const slides = track.querySelectorAll("img, video");
+                const prevBtn = carousel.querySelector(".carousel-prev");
+                const nextBtn = carousel.querySelector(".carousel-next");
+                if (slides.length === 0) {
                     track.innerHTML =
                         '<div class="carousel-placeholder">📦</div>';
                     dotsEl.innerHTML = "";
-                } else if (imgs.length === 1) {
+                    if (prevBtn) prevBtn.hidden = true;
+                    if (nextBtn) nextBtn.hidden = true;
+                } else if (slides.length === 1) {
                     dotsEl.innerHTML = "";
+                    if (prevBtn) prevBtn.hidden = true;
+                    if (nextBtn) nextBtn.hidden = true;
                 } else {
                     const cur = track.offsetWidth
                         ? Math.round(track.scrollLeft / track.offsetWidth)
                         : 0;
                     dotsEl.innerHTML = Array.from(
-                        imgs,
+                        slides,
                         (_, i) =>
                             `<span class="dot${i === cur ? " active" : ""}"></span>`,
                     ).join("");
+                    if (prevBtn) prevBtn.hidden = false;
+                    if (nextBtn) nextBtn.hidden = false;
                 }
             }
 
@@ -297,18 +335,21 @@
                             });
                     }
 
-                    // Scroll → sync active dot
+                    // Scroll → sync active dot + play/pause video
                     track.addEventListener(
                         "scroll",
                         () => {
+                            if (!track.offsetWidth) return;
+                            const idx = Math.round(track.scrollLeft / track.offsetWidth);
                             const dots = dotsEl.querySelectorAll(".dot");
-                            if (!dots.length || !track.offsetWidth) return;
-                            const idx = Math.round(
-                                track.scrollLeft / track.offsetWidth,
-                            );
-                            dots.forEach((d, i) =>
-                                d.classList.toggle("active", i === idx),
-                            );
+                            dots.forEach((d, i) => d.classList.toggle("active", i === idx));
+                            const allSlides = Array.from(track.querySelectorAll("img, video"));
+                            allSlides.forEach((el, i) => {
+                                if (el.tagName === "VIDEO") {
+                                    if (i === idx) el.play().catch(() => {});
+                                    else el.pause();
+                                }
+                            });
                         },
                         { passive: true },
                     );
