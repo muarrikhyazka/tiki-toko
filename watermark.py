@@ -189,14 +189,16 @@ def rename_sequentially(folder_path: Path, images: list[Path], videos: list[Path
 
     for i, (tmp, ext) in enumerate(img_temps, 1):
         tmp.rename(folder_path / f"{i}{ext}")
-    for i, (tmp, ext) in enumerate(vid_temps, 1):
+    # Video mulai dari nomor setelah gambar terakhir
+    vid_start = len(img_temps) + 1
+    for i, (tmp, ext) in enumerate(vid_temps, vid_start):
         tmp.rename(folder_path / f"{i}{ext}")
 
     parts = []
     if img_temps:
         parts.append(f"{len(img_temps)} gambar → 1{img_temps[0][1]}…")
     if vid_temps:
-        parts.append(f"{len(vid_temps)} video → 1{vid_temps[0][1]}…")
+        parts.append(f"{len(vid_temps)} video → {vid_start}{vid_temps[0][1]}…")
     print(f"  Rename   : {' | '.join(parts)}")
 
 
