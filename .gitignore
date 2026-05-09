@@ -1,0 +1,6 @@
+.DS_Store
+__pycache__/
+*.pyc
+fb_session.json
+fb_posted.json
+fb_error_*.png
