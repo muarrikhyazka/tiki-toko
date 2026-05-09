@@ -694,11 +694,24 @@
                 return rows;
             }
 
+            async function fetchWithTimeout(url, ms = 10000) {
+                const ctrl = new AbortController();
+                const tid  = setTimeout(() => ctrl.abort(), ms);
+                try {
+                    const resp = await fetch(url, { signal: ctrl.signal });
+                    clearTimeout(tid);
+                    return resp;
+                } catch (e) {
+                    clearTimeout(tid);
+                    throw e;
+                }
+            }
+
             async function fetchProductsCSV() {
                 if (!SHEET_CSV_URL || SHEET_CSV_URL === "YOUR_CSV_URL_HERE")
                     return [];
                 try {
-                    const resp = await fetch(SHEET_CSV_URL);
+                    const resp = await fetchWithTimeout(SHEET_CSV_URL);
                     if (!resp.ok) return [];
                     const rows = parseCSV(await resp.text());
                     if (rows.length < 3) return [];
@@ -738,7 +751,7 @@
                 )
                     return null;
                 try {
-                    const resp = await fetch(TRACKER_CSV_URL);
+                    const resp = await fetchWithTimeout(TRACKER_CSV_URL);
                     if (!resp.ok) return [];
                     const rows = parseCSV(await resp.text());
                     if (rows.length < 2) return [];
@@ -772,7 +785,7 @@
                 if (!EVENTS_CSV_URL || EVENTS_CSV_URL === "YOUR_EVENTS_CSV_URL_HERE")
                     return [];
                 try {
-                    const resp = await fetch(EVENTS_CSV_URL);
+                    const resp = await fetchWithTimeout(EVENTS_CSV_URL, 15000);
                     if (!resp.ok) return [];
                     const rows = parseCSV(await resp.text());
                     if (rows.length < 2) return [];
@@ -1201,10 +1214,10 @@
                 document.getElementById("chartsGrid").style.display = "none";
                 document.getElementById("timeChartsWrap").style.display = "none";
 
-                const [csvProducts, sheetsData, events] = await Promise.all([
+                // Fetch produk + tracker dulu (blocking) — events di background
+                const [csvProducts, sheetsData] = await Promise.all([
                     fetchProductsCSV(),
                     fetchTrackerCSV(),
-                    fetchEventsCSV(),
                 ]);
 
                 if (sheetsData === null) {
@@ -1304,14 +1317,17 @@
                     setTimeout(() => drawCharts(allRows), 50);
                 }
 
-                if (events.length > 0) {
-                    document.getElementById("timeChartsWrap").style.display = "block";
-                    document.getElementById("eventCount").textContent =
-                        `${events.length} event tercatat`;
-                    setTimeout(() => drawTimeCharts(events), 80);
-                }
-
                 renderTable();
+
+                // Fetch events di background — tidak block render tabel
+                fetchEventsCSV().then((events) => {
+                    if (events.length > 0) {
+                        document.getElementById("timeChartsWrap").style.display = "block";
+                        document.getElementById("eventCount").textContent =
+                            `${events.length} event tercatat`;
+                        setTimeout(() => drawTimeCharts(events), 50);
+                    }
+                }).catch(() => {});
             }
 
             async function toggleSold(id, name, isSold) {
