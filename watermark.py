@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tambahkan watermark ke semua gambar dan video dalam folder (mengganti file asli).
+Tambahkan watermark ke semua gambar dan video, lalu rename ke urutan angka.
 
 Install:
     pip install Pillow
@@ -9,12 +9,18 @@ Install:
         Ubuntu : sudo apt install ffmpeg
         Windows: https://ffmpeg.org/download.html
 
-Jalankan:
-    python watermark.py /path/ke/folder
+Jalankan (BATCH — proses semua subfolder sekaligus):
+    python watermark.py images/
+    → memproses images/1. Motor/, images/2. Smart TV/, dst.
+    → setelah selesai folder direname ke images/1/, images/2/, dst.
+
+Jalankan (SINGLE — satu folder saja):
+    python watermark.py images/1/
     python watermark.py          ← akan ditanya foldernya
 """
 
 import os
+import re
 import sys
 import shutil
 import subprocess
@@ -39,15 +45,17 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".m4v", ".3gp"}
 
 
+# ── Font & posisi ─────────────────────────────────────────────
+
 def get_font(size: int) -> ImageFont.ImageFont:
     candidates = [
-        "/System/Library/Fonts/Helvetica.ttc",                              # macOS
-        "/System/Library/Fonts/Arial.ttf",                                  # macOS
-        "/Library/Fonts/Arial.ttf",                                         # macOS
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",             # Linux
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",  # Linux
-        "C:/Windows/Fonts/arial.ttf",                                       # Windows
-        "C:/Windows/Fonts/Arial.ttf",                                       # Windows
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/Arial.ttf",
     ]
     for path in candidates:
         try:
@@ -55,7 +63,7 @@ def get_font(size: int) -> ImageFont.ImageFont:
         except Exception:
             pass
     try:
-        return ImageFont.load_default(size=size)  # Pillow 10.1+
+        return ImageFont.load_default(size=size)
     except Exception:
         return ImageFont.load_default()
 
@@ -72,6 +80,8 @@ def calc_xy(img_w: int, img_h: int, tw: int, th: int) -> tuple[int, int]:
     return options.get(POSITION, options["bottom-right"])
 
 
+# ── Watermark ─────────────────────────────────────────────────
+
 def watermark_image(path: Path) -> None:
     img = Image.open(path)
     orig_mode = img.mode
@@ -85,10 +95,8 @@ def watermark_image(path: Path) -> None:
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
     x, y = calc_xy(img_rgba.width, img_rgba.height, tw, th)
 
-    # Shadow
     draw.text((x + 2, y + 2), WATERMARK_TEXT, font=font,
               fill=(0, 0, 0, min(OPACITY // 2, 255)))
-    # Teks utama
     draw.text((x, y), WATERMARK_TEXT, font=font,
               fill=(*TEXT_COLOR, OPACITY))
 
@@ -131,8 +139,6 @@ def find_system_font() -> str:
 
 def watermark_video(path: Path) -> None:
     tmp = path.with_suffix(".wm_tmp" + path.suffix)
-
-    # Escape karakter khusus ffmpeg
     text = WATERMARK_TEXT.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
     alpha = f"{OPACITY / 255:.2f}"
     shadow_alpha = f"{OPACITY / 255 / 2:.2f}"
@@ -145,7 +151,6 @@ def watermark_video(path: Path) -> None:
         f"{ffmpeg_pos_expr()}:"
         f"shadowcolor=black@{shadow_alpha}:shadowx=2:shadowy=2"
     )
-
     font_path = find_system_font()
     if font_path:
         drawtext = f"fontfile='{font_path}':" + drawtext
@@ -153,28 +158,27 @@ def watermark_video(path: Path) -> None:
     cmd = [
         "ffmpeg", "-i", str(path),
         "-vf", drawtext,
-        "-c:a", "copy",   # audio tidak di-encode ulang
-        "-crf", "23",     # kualitas video (18=terbaik, 28=terkecil)
+        "-c:a", "copy",
+        "-crf", "23",
         "-preset", "fast",
         "-loglevel", "error",
         "-y", str(tmp),
     ]
-
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         tmp.unlink(missing_ok=True)
         msg = proc.stderr.strip().splitlines()
         raise RuntimeError(msg[-1] if msg else "ffmpeg error")
-
     os.replace(tmp, path)
 
 
+# ── Rename sequential ─────────────────────────────────────────
+
 def rename_sequentially(folder_path: Path, images: list[Path], videos: list[Path]) -> None:
-    """Rename watermarked files to 1.jpg/2.jpg/... and 1.mp4/2.mp4/..."""
+    """Rename ke 1.jpg/2.jpg/... dan 1.mp4/2.mp4/... dengan two-pass untuk hindari konflik."""
     if not images and not videos:
         return
 
-    # Pass 1: rename to unique temp names to avoid collisions
     img_temps, vid_temps = [], []
     for i, p in enumerate(images):
         tmp = folder_path / f"__wm_img_{i}{p.suffix.lower()}"
@@ -185,20 +189,88 @@ def rename_sequentially(folder_path: Path, images: list[Path], videos: list[Path
         p.rename(tmp)
         vid_temps.append((tmp, p.suffix.lower()))
 
-    # Pass 2: rename to final sequential names
     for i, (tmp, ext) in enumerate(img_temps, 1):
         tmp.rename(folder_path / f"{i}{ext}")
     for i, (tmp, ext) in enumerate(vid_temps, 1):
         tmp.rename(folder_path / f"{i}{ext}")
 
-    print(f"Rename   : {len(img_temps)} gambar → 1{img_temps[0][1]}…  |  "
-          f"{len(vid_temps)} video → 1{vid_temps[0][1]}…" if img_temps and vid_temps else
-          f"Rename   : {len(img_temps)} gambar → 1{img_temps[0][1]}…" if img_temps else
-          f"Rename   : {len(vid_temps)} video → 1{vid_temps[0][1]}…")
+    parts = []
+    if img_temps:
+        parts.append(f"{len(img_temps)} gambar → 1{img_temps[0][1]}…")
+    if vid_temps:
+        parts.append(f"{len(vid_temps)} video → 1{vid_temps[0][1]}…")
+    print(f"  Rename   : {' | '.join(parts)}")
 
+
+# ── Folder rename (batch mode) ────────────────────────────────
+
+def extract_number(folder_name: str) -> str | None:
+    """Ekstrak angka di awal nama folder. '14. Kulkas' → '14', '2' → '2'."""
+    m = re.match(r'^(\d+)', folder_name.strip())
+    return m.group(1) if m else None
+
+
+def rename_folder_to_number(folder_path: Path) -> Path | None:
+    """Rename 'images/14. Kulkas' → 'images/14'. Return path baru atau None jika gagal."""
+    number = extract_number(folder_path.name)
+    if not number:
+        print(f"  ⚠  Tidak bisa ekstrak nomor dari nama folder '{folder_path.name}' — dilewati.")
+        return None
+
+    new_path = folder_path.parent / number
+    if new_path == folder_path:
+        return folder_path  # sudah benar
+
+    if new_path.exists():
+        print(f"  ⚠  Folder '{new_path.name}' sudah ada — folder tidak direname.")
+        return None
+
+    folder_path.rename(new_path)
+    print(f"  Folder   : '{folder_path.name}' → '{new_path.name}'")
+    return new_path
+
+
+# ── Proses satu folder ────────────────────────────────────────
+
+def process_folder(folder_path: Path, ffmpeg_ok: bool) -> tuple[int, int]:
+    """Watermark semua gambar/video di folder_path. Return (ok, fail)."""
+    images = sorted(f for f in folder_path.iterdir()
+                    if f.is_file() and f.suffix.lower() in IMAGE_EXTS)
+    videos = sorted(f for f in folder_path.iterdir()
+                    if f.is_file() and f.suffix.lower() in VIDEO_EXTS) if ffmpeg_ok else []
+
+    total = len(images) + len(videos)
+    if total == 0:
+        print("  Tidak ada file gambar/video.")
+        return 0, 0
+
+    ok = fail = 0
+    ok_images: list[Path] = []
+    ok_videos: list[Path] = []
+
+    for i, path in enumerate(images + videos, 1):
+        kind = "IMG" if path.suffix.lower() in IMAGE_EXTS else "VID"
+        print(f"  [{i:2}/{total}] {kind}  {path.name[:42]:<42} ", end="", flush=True)
+        try:
+            if kind == "IMG":
+                watermark_image(path)
+                ok_images.append(path)
+            else:
+                watermark_video(path)
+                ok_videos.append(path)
+            print("✓")
+            ok += 1
+        except Exception as e:
+            print(f"✗  {e}")
+            fail += 1
+
+    rename_sequentially(folder_path, ok_images, ok_videos)
+    return ok, fail
+
+
+# ── Main ──────────────────────────────────────────────────────
 
 def main() -> None:
-    # Ambil path folder dari argumen atau tanya user
     if len(sys.argv) >= 2:
         folder = " ".join(sys.argv[1:]).strip().strip('"')
     else:
@@ -213,44 +285,46 @@ def main() -> None:
         print("⚠  ffmpeg tidak ditemukan — video dilewati.")
         print("   Install: brew install ffmpeg  (Mac) | sudo apt install ffmpeg  (Linux)\n")
 
-    images = sorted(f for f in folder_path.iterdir()
-                    if f.is_file() and f.suffix.lower() in IMAGE_EXTS)
-    videos = sorted(f for f in folder_path.iterdir()
-                    if f.is_file() and f.suffix.lower() in VIDEO_EXTS) if ffmpeg_ok else []
+    # ── Deteksi mode: batch (ada subfolder) atau single ───────
+    subdirs = sorted(d for d in folder_path.iterdir() if d.is_dir())
 
-    total = len(images) + len(videos)
-    if total == 0:
-        print("Tidak ada file gambar/video yang ditemukan.")
-        return
+    if subdirs:
+        # BATCH MODE — proses semua subfolder
+        print(f"Batch mode : {len(subdirs)} folder produk")
+        print(f"Watermark  : \"{WATERMARK_TEXT}\"  |  {POSITION}  |  opacity {OPACITY}/255")
+        print("=" * 55)
 
-    print(f"Folder   : {folder_path.resolve()}")
-    print(f"Ditemukan: {len(images)} gambar, {len(videos)} video")
-    print(f"Watermark: \"{WATERMARK_TEXT}\"  |  {POSITION}  |  opacity {OPACITY}/255")
-    print("-" * 55)
+        total_ok = total_fail = 0
+        for subdir in subdirs:
+            print(f"\n📁 {subdir.name}")
+            ok, fail = process_folder(subdir, ffmpeg_ok)
+            total_ok   += ok
+            total_fail += fail
 
-    ok = fail = 0
-    ok_images: list[Path] = []
-    ok_videos: list[Path] = []
-    for i, path in enumerate(images + videos, 1):
-        kind = "IMG" if path.suffix.lower() in IMAGE_EXTS else "VID"
-        print(f"[{i:3}/{total}] {kind}  {path.name[:45]:<45} ", end="", flush=True)
-        try:
-            if kind == "IMG":
-                watermark_image(path)
-                ok_images.append(path)
-            else:
-                watermark_video(path)
-                ok_videos.append(path)
-            print("✓")
-            ok += 1
-        except Exception as e:
-            print(f"✗  {e}")
-            fail += 1
+            # Rename folder ke angka saja (misal "1. Motor" → "1")
+            rename_folder_to_number(subdir)
 
-    print("-" * 55)
-    print(f"Selesai: {ok} berhasil, {fail} gagal.")
+        print("\n" + "=" * 55)
+        print(f"Selesai: {total_ok} file berhasil, {total_fail} gagal.")
 
-    rename_sequentially(folder_path, ok_images, ok_videos)
+    else:
+        # SINGLE MODE — proses langsung file di folder ini
+        has_images = any(f.suffix.lower() in IMAGE_EXTS
+                         for f in folder_path.iterdir() if f.is_file())
+        has_videos = any(f.suffix.lower() in VIDEO_EXTS
+                         for f in folder_path.iterdir() if f.is_file())
+
+        if not has_images and not has_videos:
+            sys.exit("Tidak ada file gambar/video dan tidak ada subfolder ditemukan.")
+
+        print(f"Folder   : {folder_path.resolve()}")
+        print(f"Watermark: \"{WATERMARK_TEXT}\"  |  {POSITION}  |  opacity {OPACITY}/255")
+        print("-" * 55)
+
+        ok, fail = process_folder(folder_path, ffmpeg_ok)
+
+        print("-" * 55)
+        print(f"Selesai: {ok} berhasil, {fail} gagal.")
 
 
 if __name__ == "__main__":
