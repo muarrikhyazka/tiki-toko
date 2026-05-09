@@ -167,13 +167,25 @@ def ensure_logged_in(page, context):
     if has_creds:
         print("  Mencoba auto-login...")
         try:
-            page.locator('#email').fill(FB_EMAIL)
+            # Tunggu field email benar-benar muncul dan siap
+            email_field = page.locator('input[name="email"]')
+            email_field.wait_for(state="visible", timeout=8000)
+            email_field.click()
+            _delay(0.3, 0.6)
+            email_field.fill(FB_EMAIL)
             _delay(0.5, 1)
-            page.locator('#pass').fill(FB_PASSWORD)
+
+            pass_field = page.locator('input[name="pass"]')
+            pass_field.wait_for(state="visible", timeout=5000)
+            pass_field.click()
+            _delay(0.3, 0.6)
+            pass_field.fill(FB_PASSWORD)
             _delay(0.5, 1)
-            page.locator('[name="login"]').click()
+
+            page.locator('button[name="login"]').click()
             _delay(5, 8)
-            # Verifikasi berhasil login
+
+            # Verifikasi berhasil login: tombol Login sudah hilang
             page.get_by_role("button", name="Log In", exact=False).wait_for(timeout=5000)
             # Masih ada tombol login → gagal
             print("  ⚠  Auto-login gagal (mungkin ada verifikasi tambahan).")
