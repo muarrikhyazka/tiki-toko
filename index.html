@@ -235,12 +235,19 @@
             // ── Carousel ──────────────────────────────────────────────
             // Coba muat 1.jpg s/d MAX_IMG.jpg; gambar yang 404 dihapus otomatis.
             function buildCarousel(p, prefix) {
-                const slides = Array.from(
-                    { length: MAX_IMG },
-                    (_, i) =>
-                        `<img class="carousel-slide" src="${p.imageFolder}/${i + 1}.jpg"
+                let slides;
+                if (prefix === "card") {
+                    // Hanya muat gambar pertama di grid — hemat request (1 per produk, bukan 20)
+                    slides = `<img class="carousel-slide" src="${p.imageFolder}/1.jpg"
+             alt="${p.name}" loading="lazy" onerror="imgErr(this)">`;
+                } else {
+                    slides = Array.from(
+                        { length: MAX_IMG },
+                        (_, i) =>
+                            `<img class="carousel-slide" src="${p.imageFolder}/${i + 1}.jpg"
              alt="${p.name}" loading="lazy" onerror="imgErr(this)">`,
-                ).join("");
+                    ).join("");
+                }
                 const navBtns =
                     prefix === "modal"
                         ? `<button class="carousel-prev" onclick="carouselNav(this,-1)" aria-label="Sebelumnya" hidden>&#8249;</button>
