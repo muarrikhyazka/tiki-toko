@@ -699,8 +699,8 @@
                         .map((r) => ({
                             productId: Number(r[iId]) || 0,
                             productName: String(r[iName] || ""),
-                            productClicks: Number(r[iPc] || 0),
-                            waClicks: Number(r[iWa] || 0),
+                            productClicks: Math.max(0, parseInt(r[iPc]) || 0),
+                            waClicks: Math.max(0, parseInt(r[iWa]) || 0),
                             lastClick: r[iLast] || null,
                             sold:
                                 (r[iSold] || "").trim().toUpperCase() ===
@@ -1127,7 +1127,7 @@
                 document.getElementById("updatedAt").textContent =
                     "Diperbarui: " + new Date().toLocaleTimeString("id-ID");
 
-                if (totalWa + totalPro > 0) {
+                if (allRows.length > 0) {
                     document.getElementById("chartsGrid").style.display =
                         "grid";
                     setTimeout(() => drawCharts(allRows), 50);
