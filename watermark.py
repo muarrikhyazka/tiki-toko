@@ -19,6 +19,7 @@ Jalankan (SINGLE — satu folder saja):
     python watermark.py          ← akan ditanya foldernya
 """
 
+import json
 import os
 import re
 import sys
@@ -33,12 +34,14 @@ except ImportError:
 
 
 # ── KONFIGURASI ───────────────────────────────────────────────
-WATERMARK_TEXT = "© Tiki Toko"     # teks watermark
-FONT_SIZE      = 36                 # ukuran font (px)
-OPACITY        = 180                # transparansi: 0 (tidak terlihat) – 255 (solid)
-POSITION       = "center"           # top-left | top-right | bottom-left | bottom-right | center
-MARGIN         = 20                 # jarak dari tepi (px)
-TEXT_COLOR     = (255, 255, 255)    # warna teks RGB (putih)
+WATERMARK_TEXT   = "© Tiki Toko"   # teks watermark
+FONT_SIZE_RATIO  = 0.04            # font = 4% dari sisi terpendek gambar/video
+FONT_SIZE_MIN    = 16              # ukuran minimum (px)
+FONT_SIZE_MAX    = 80              # ukuran maksimum (px)
+OPACITY          = 180             # transparansi: 0 (tidak terlihat) – 255 (solid)
+POSITION         = "center"        # top-left | top-right | bottom-left | bottom-right | center
+MARGIN           = 20              # jarak dari tepi (px) — untuk posisi selain center
+TEXT_COLOR       = (255, 255, 255) # warna teks RGB (putih)
 # ─────────────────────────────────────────────────────────────
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
@@ -46,6 +49,26 @@ VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".m4v", ".3gp"}
 
 
 # ── Font & posisi ─────────────────────────────────────────────
+
+def adaptive_font_size(width: int, height: int) -> int:
+    """Hitung ukuran font berdasarkan dimensi gambar/video."""
+    return max(FONT_SIZE_MIN, min(FONT_SIZE_MAX, int(min(width, height) * FONT_SIZE_RATIO)))
+
+
+def get_video_size(path: Path) -> tuple[int, int]:
+    """Ambil dimensi video via ffprobe. Fallback ke 1920x1080."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_streams", str(path)],
+            capture_output=True, text=True, timeout=10,
+        )
+        for s in json.loads(result.stdout).get("streams", []):
+            if s.get("codec_type") == "video":
+                return int(s["width"]), int(s["height"])
+    except Exception:
+        pass
+    return 1920, 1080
+
 
 def get_font(size: int) -> ImageFont.ImageFont:
     candidates = [
@@ -89,7 +112,7 @@ def watermark_image(path: Path) -> Path:
 
     overlay = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
-    font = get_font(FONT_SIZE)
+    font = get_font(adaptive_font_size(img_rgba.width, img_rgba.height))
 
     bbox = draw.textbbox((0, 0), WATERMARK_TEXT, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
@@ -113,10 +136,10 @@ def watermark_image(path: Path) -> Path:
     return jpg_path
 
 
-def _make_watermark_png(out: Path) -> None:
+def _make_watermark_png(out: Path, font_size: int) -> None:
     """Buat PNG transparan berisi teks watermark (pakai Pillow, bukan ffmpeg freetype)."""
-    font = get_font(FONT_SIZE)
-    pad  = 12
+    font = get_font(font_size)
+    pad  = max(8, font_size // 3)
 
     dummy_draw = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
     bbox = dummy_draw.textbbox((0, 0), WATERMARK_TEXT, font=font)
@@ -145,10 +168,11 @@ def _overlay_expr() -> str:
 
 def watermark_video(path: Path) -> None:
     """Tambah watermark ke video menggunakan ffmpeg overlay (tidak butuh freetype)."""
+    w, h   = get_video_size(path)
     wm_png = path.with_name("__wm_overlay.png")
     tmp    = path.with_suffix(".wm_tmp" + path.suffix)
     try:
-        _make_watermark_png(wm_png)
+        _make_watermark_png(wm_png, adaptive_font_size(w, h))
         cmd = [
             "ffmpeg",
             "-i", str(path),
@@ -291,7 +315,7 @@ def main() -> None:
     if subdirs:
         # BATCH MODE — proses semua subfolder
         print(f"Batch mode : {len(subdirs)} folder produk")
-        print(f"Watermark  : \"{WATERMARK_TEXT}\"  |  {POSITION}  |  opacity {OPACITY}/255")
+        print(f"Watermark  : \"{WATERMARK_TEXT}\"  |  {POSITION}  |  font {FONT_SIZE_RATIO*100:.0f}% sisi terpendek  |  opacity {OPACITY}/255")
         print("=" * 55)
 
         total_ok = total_fail = 0
@@ -318,7 +342,7 @@ def main() -> None:
             sys.exit("Tidak ada file gambar/video dan tidak ada subfolder ditemukan.")
 
         print(f"Folder   : {folder_path.resolve()}")
-        print(f"Watermark: \"{WATERMARK_TEXT}\"  |  {POSITION}  |  opacity {OPACITY}/255")
+        print(f"Watermark: \"{WATERMARK_TEXT}\"  |  {POSITION}  |  font {FONT_SIZE_RATIO*100:.0f}% sisi terpendek  |  opacity {OPACITY}/255")
         print("-" * 55)
 
         ok, fail = process_folder(folder_path, ffmpeg_ok)
