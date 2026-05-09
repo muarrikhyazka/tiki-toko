@@ -3,8 +3,12 @@
 fb_marketplace.py — Post produk Tiki Toko ke Facebook Marketplace
 
 Install:
-    pip install playwright
+    pip install playwright python-dotenv
     playwright install chromium
+
+Setup:
+    cp .env.example .env
+    # lalu isi FB_EMAIL dan FB_PASSWORD di file .env
 
 Jalankan:
     python fb_marketplace.py              # post semua produk belum dipost
@@ -17,22 +21,26 @@ import argparse
 import csv as csv_module
 import io
 import json
+import os
 import random
 import time
 import urllib.request
 from pathlib import Path
 
+from dotenv import load_dotenv
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
+
+load_dotenv()
 
 
 # ── KONFIGURASI ───────────────────────────────────────────────
 # Salin SHEET_CSV_URL dari config.js
 SHEET_CSV_URL = "YOUR_SHEET_CSV_URL_HERE"
 
-# Akun Facebook (opsional — isi untuk auto-login, kosongkan untuk login manual)
-FB_EMAIL      = "YOUR_EMAIL_HERE"
-FB_PASSWORD   = "YOUR_PASSWORD_HERE"
+# Akun Facebook — dibaca dari .env (FB_EMAIL dan FB_PASSWORD)
+FB_EMAIL      = os.getenv("FB_EMAIL", "")
+FB_PASSWORD   = os.getenv("FB_PASSWORD", "")
 
 IMAGES_DIR    = Path("images")           # folder foto lokal (images/{no}/1.jpg ...)
 SESSION_FILE  = Path("fb_session.json")  # cookies login tersimpan
@@ -156,10 +164,7 @@ def ensure_logged_in(page, context):
         return
 
     # Coba auto-login jika kredensial sudah diisi di konfigurasi
-    has_creds = (
-        FB_EMAIL and FB_EMAIL != "YOUR_EMAIL_HERE" and
-        FB_PASSWORD and FB_PASSWORD != "YOUR_PASSWORD_HERE"
-    )
+    has_creds = bool(FB_EMAIL and FB_PASSWORD)
 
     if has_creds:
         print("  Mencoba auto-login...")
