@@ -12,7 +12,7 @@ const SHEET_CSV_URL =
 
 // URL Google Apps Script untuk tracking klik WA (lihat apps-script.js)
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbwlQ9mpP2Rm67X8EqXeklTo-AsBQ6VCFVoFbwLxvt23f16H5B_XvwXca_gC9KwtxmfB/exec";
+  "https://script.google.com/macros/s/AKfycbxmfbibCQck5LveWHjyMCbMnN1BKOcVE1LoUsdmzG0ng0EM_jyJ8pWDI3dHKULbeqe7/exec";
 
 // URL CSV sheet tracker (File → Share → Publish to web → pilih tab Clicks → CSV)
 const TRACKER_CSV_URL =
@@ -20,7 +20,8 @@ const TRACKER_CSV_URL =
 
 // URL CSV sheet events (File → Share → Publish to web → pilih tab Events → CSV)
 // Sheet Events dibuat otomatis oleh Apps Script saat pertama kali ada klik
-const EVENTS_CSV_URL = "YOUR_EVENTS_CSV_URL_HERE";
+const EVENTS_CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3fxBlvLLcwJhhLwWGHTeFao9_FPnGPCUrs49FEm0JDJ1-oPdD02ys1_xE_jM9uKwrMgMHc0Z2-gl2/pub?gid=744777442&single=true&output=csv";
 
 // Password halaman dashboard
 const DASHBOARD_PASSWORD = "tiki123";

@@ -93,6 +93,11 @@ function doGet(e) {
       return jsonOut({ success: true });
     }
 
+    if (action === "migrateEvents") {
+      const count = migrateExistingClicks(sheet);
+      return jsonOut({ success: true, migrated: count });
+    }
+
     return jsonOut({ status: "ok", sheet: SHEET_NAME });
 
   } catch (err) {
@@ -195,6 +200,32 @@ function getAllData(sheet) {
     });
   }
   return result;
+}
+
+function migrateExistingClicks(sheet) {
+  const ev     = getOrCreateEventsSheet();
+  const values = sheet.getDataRange().getValues();
+  const rows   = [];
+
+  for (let i = 1; i < values.length; i++) {
+    const row         = values[i];
+    if (!row[0]) continue;
+
+    const productId   = Number(row[0]);
+    const productName = String(row[1] || "");
+    const pClicks     = safeInt(row[2]);
+    const wClicks     = safeInt(row[3]);
+    // Gunakan last_click sebagai timestamp; fallback ke sekarang jika kosong
+    const ts          = (row[4] instanceof Date ? row[4] : new Date()).toISOString();
+
+    for (let j = 0; j < pClicks; j++) rows.push([ts, productId, productName, "product"]);
+    for (let j = 0; j < wClicks; j++) rows.push([ts, productId, productName, "wa"]);
+  }
+
+  if (rows.length > 0) {
+    ev.getRange(ev.getLastRow() + 1, 1, rows.length, 4).setValues(rows);
+  }
+  return rows.length;
 }
 
 function clearData(sheet) {
