@@ -36,7 +36,7 @@ except ImportError:
 WATERMARK_TEXT = "© Tiki Toko"     # teks watermark
 FONT_SIZE      = 36                 # ukuran font (px)
 OPACITY        = 180                # transparansi: 0 (tidak terlihat) – 255 (solid)
-POSITION       = "bottom-right"     # top-left | top-right | bottom-left | bottom-right | center
+POSITION       = "center"           # top-left | top-right | bottom-left | bottom-right | center
 MARGIN         = 20                 # jarak dari tepi (px)
 TEXT_COLOR     = (255, 255, 255)    # warna teks RGB (putih)
 # ─────────────────────────────────────────────────────────────
