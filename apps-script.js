@@ -33,7 +33,8 @@
 
 // ── PASTE KODE DI BAWAH INI KE APPS SCRIPT EDITOR ──────────
 
-const SHEET_NAME = "Clicks";
+const SHEET_NAME        = "Clicks";
+const EVENTS_SHEET_NAME = "Events";
 
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || "ping";
@@ -81,7 +82,15 @@ function doGet(e) {
 
     if (action === "setup") {
       setupFormats(sheet);
+      getOrCreateEventsSheet();
       return jsonOut({ success: true, message: "Format kolom sudah diperbaiki." });
+    }
+
+    if (action === "resetEvents") {
+      const ev = getOrCreateEventsSheet();
+      const last = ev.getLastRow();
+      if (last > 1) ev.getRange(2, 1, last - 1, 4).clearContent();
+      return jsonOut({ success: true });
     }
 
     return jsonOut({ status: "ok", sheet: SHEET_NAME });
@@ -89,6 +98,25 @@ function doGet(e) {
   } catch (err) {
     return jsonOut({ error: err.message });
   }
+}
+
+function getOrCreateEventsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ev = ss.getSheetByName(EVENTS_SHEET_NAME);
+  if (!ev) {
+    ev = ss.insertSheet(EVENTS_SHEET_NAME);
+    ev.getRange("A1:D1").setValues([["timestamp", "product_id", "product_name", "click_type"]]);
+    ev.getRange("A:A").setNumberFormat("@");  // simpan sebagai teks agar tidak diubah ke Date
+    ev.getRange("B:B").setNumberFormat("0");
+    ev.getRange("C:C").setNumberFormat("@");
+    ev.getRange("D:D").setNumberFormat("@");
+  }
+  return ev;
+}
+
+function recordEvent(productId, productName, clickType) {
+  const ev = getOrCreateEventsSheet();
+  ev.appendRow([new Date().toISOString(), productId, productName, clickType]);
 }
 
 function safeInt(val) {
@@ -110,6 +138,7 @@ function setupFormats(sheet) {
 
 function recordClick(sheet, productId, productName, clickType) {
   const values = sheet.getDataRange().getValues();
+  let found = false;
 
   for (let i = 1; i < values.length; i++) {
     if (Number(values[i][0]) === productId) {
@@ -119,15 +148,20 @@ function recordClick(sheet, productId, productName, clickType) {
         sheet.getRange(i + 1, 4).setValue(safeInt(values[i][3]) + 1); // wa_clicks (col D)
       }
       sheet.getRange(i + 1, 5).setValue(new Date()); // last_click (col E)
-      return;
+      found = true;
+      break;
     }
   }
 
-  // Produk baru — append lalu pastikan format kolom benar
-  const pClicks = clickType === "product" ? 1 : 0;
-  const wClicks = clickType === "wa"      ? 1 : 0;
-  sheet.appendRow([productId, productName, pClicks, wClicks, new Date(), false]);
-  setupFormats(sheet); // cegah auto-format Date pada baris baru
+  if (!found) {
+    // Produk baru — append lalu pastikan format kolom benar
+    const pClicks = clickType === "product" ? 1 : 0;
+    const wClicks = clickType === "wa"      ? 1 : 0;
+    sheet.appendRow([productId, productName, pClicks, wClicks, new Date(), false]);
+    setupFormats(sheet); // cegah auto-format Date pada baris baru
+  }
+
+  recordEvent(productId, productName, clickType); // catat setiap event dengan timestamp
 }
 
 function setSold(sheet, productId, productName, isSold) {

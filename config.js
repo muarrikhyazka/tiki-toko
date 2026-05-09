@@ -18,5 +18,9 @@ const APPS_SCRIPT_URL =
 const TRACKER_CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3fxBlvLLcwJhhLwWGHTeFao9_FPnGPCUrs49FEm0JDJ1-oPdD02ys1_xE_jM9uKwrMgMHc0Z2-gl2/pub?gid=0&single=true&output=csv";
 
+// URL CSV sheet events (File → Share → Publish to web → pilih tab Events → CSV)
+// Sheet Events dibuat otomatis oleh Apps Script saat pertama kali ada klik
+const EVENTS_CSV_URL = "YOUR_EVENTS_CSV_URL_HERE";
+
 // Password halaman dashboard
 const DASHBOARD_PASSWORD = "tiki123";

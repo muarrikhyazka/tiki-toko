@@ -212,6 +212,38 @@
                 margin-bottom: 14px;
             }
 
+            /* ── TIME CHARTS ── */
+            .time-charts-wrap {
+                margin-bottom: 20px;
+            }
+
+            .time-charts-header {
+                display: flex;
+                align-items: baseline;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+
+            .time-charts-header h2 {
+                font-size: 1rem;
+                font-weight: 700;
+            }
+
+            .time-charts-sub {
+                font-size: 0.78rem;
+                color: #aaa;
+            }
+
+            .time-charts-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 14px;
+            }
+
+            .chart-card-wide {
+                grid-column: 1 / -1;
+            }
+
             /* ── TABLE ── */
             .table-wrap {
                 background: white;
@@ -483,8 +515,12 @@
             }
 
             @media (max-width: 680px) {
-                .charts-grid {
+                .charts-grid,
+                .time-charts-grid {
                     grid-template-columns: 1fr;
+                }
+                .chart-card-wide {
+                    grid-column: 1;
                 }
             }
 
@@ -551,6 +587,27 @@
                     <div class="chart-card">
                         <h3>Top 10 Produk</h3>
                         <canvas id="chartBar"></canvas>
+                    </div>
+                </div>
+
+                <div class="time-charts-wrap" id="timeChartsWrap" style="display: none">
+                    <div class="time-charts-header">
+                        <h2>Distribusi Waktu Klik</h2>
+                        <span class="time-charts-sub" id="eventCount"></span>
+                    </div>
+                    <div class="time-charts-grid">
+                        <div class="chart-card chart-card-wide">
+                            <h3>Per Jam (0–23)</h3>
+                            <canvas id="chartHour"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Per Hari</h3>
+                            <canvas id="chartDay"></canvas>
+                        </div>
+                        <div class="chart-card chart-card-wide">
+                            <h3>Tren per Tanggal</h3>
+                            <canvas id="chartDate"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -711,12 +768,37 @@
                 }
             }
 
+            async function fetchEventsCSV() {
+                if (!EVENTS_CSV_URL || EVENTS_CSV_URL === "YOUR_EVENTS_CSV_URL_HERE")
+                    return [];
+                try {
+                    const resp = await fetch(EVENTS_CSV_URL);
+                    if (!resp.ok) return [];
+                    const rows = parseCSV(await resp.text());
+                    if (rows.length < 2) return [];
+                    const headers = rows[0].map((h) => h.trim().toLowerCase());
+                    const iTs   = headers.indexOf("timestamp");
+                    const iType = headers.indexOf("click_type");
+                    if (iTs < 0 || iType < 0) return [];
+                    return rows.slice(1)
+                        .filter((r) => r[iTs] && r[iType])
+                        .map((r) => ({
+                            ts:   new Date(r[iTs]),
+                            type: (r[iType] || "").trim(),
+                        }))
+                        .filter((e) => !isNaN(e.ts));
+                } catch { return []; }
+            }
+
             // ── State ─────────────────────────────────────────────────
             let allRows = [];
             let sortCol = "total";
             let sortDir = "desc";
-            let chartDonutInst = null;
-            let chartBarInst = null;
+            let chartDonutInst  = null;
+            let chartBarInst    = null;
+            let chartHourInst   = null;
+            let chartDayInst    = null;
+            let chartDateInst   = null;
 
             // ── Auth ──────────────────────────────────────────────────
             function login() {
@@ -1012,6 +1094,93 @@
                 );
             }
 
+            // ── Time Charts ───────────────────────────────────────────
+            const DAYS_ID = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+            const COLORS  = { wa: "#FF4081", product: "#ffb3c9" };
+
+            function groupBy(events, keyFn) {
+                const map = {};
+                events.forEach((e) => {
+                    const k = keyFn(e);
+                    if (!map[k]) map[k] = { wa: 0, product: 0 };
+                    map[k][e.type === "wa" ? "wa" : "product"]++;
+                });
+                return map;
+            }
+
+            function drawTimeCharts(events) {
+                // ── Per Jam ──
+                const byHour = groupBy(events, (e) => e.ts.getHours());
+                const hours  = Array.from({ length: 24 }, (_, i) => i);
+                if (chartHourInst) chartHourInst.destroy();
+                chartHourInst = new Chart(
+                    document.getElementById("chartHour").getContext("2d"), {
+                    type: "bar",
+                    data: {
+                        labels: hours.map((h) => `${String(h).padStart(2,"0")}:00`),
+                        datasets: [
+                            { label: "Chat WA",     data: hours.map((h) => byHour[h]?.wa      || 0), backgroundColor: COLORS.wa,      borderRadius: 3 },
+                            { label: "Buka Produk", data: hours.map((h) => byHour[h]?.product || 0), backgroundColor: COLORS.product, borderRadius: 3 },
+                        ],
+                    },
+                    options: {
+                        responsive: true, plugins: { legend: { position: "bottom", labels: { font: { size: 11 }, padding: 14, boxWidth: 12 } } },
+                        scales: {
+                            x: { stacked: true, ticks: { font: { size: 10 } }, grid: { color: "#f5f5f5" } },
+                            y: { stacked: true, ticks: { precision: 0, font: { size: 11 } }, grid: { color: "#f5f5f5" } },
+                        },
+                    },
+                });
+
+                // ── Per Hari ──
+                const byDay = groupBy(events, (e) => e.ts.getDay());
+                if (chartDayInst) chartDayInst.destroy();
+                chartDayInst = new Chart(
+                    document.getElementById("chartDay").getContext("2d"), {
+                    type: "bar",
+                    data: {
+                        labels: DAYS_ID,
+                        datasets: [
+                            { label: "Chat WA",     data: DAYS_ID.map((_, d) => byDay[d]?.wa      || 0), backgroundColor: COLORS.wa,      borderRadius: 4 },
+                            { label: "Buka Produk", data: DAYS_ID.map((_, d) => byDay[d]?.product || 0), backgroundColor: COLORS.product, borderRadius: 4 },
+                        ],
+                    },
+                    options: {
+                        responsive: true, plugins: { legend: { position: "bottom", labels: { font: { size: 11 }, padding: 14, boxWidth: 12 } } },
+                        scales: {
+                            x: { stacked: true, ticks: { font: { size: 11 } }, grid: { display: false } },
+                            y: { stacked: true, ticks: { precision: 0, font: { size: 11 } }, grid: { color: "#f5f5f5" } },
+                        },
+                    },
+                });
+
+                // ── Per Tanggal ──
+                const byDate = groupBy(events, (e) => e.ts.toISOString().slice(0, 10));
+                const dates  = Object.keys(byDate).sort();
+                if (chartDateInst) chartDateInst.destroy();
+                chartDateInst = new Chart(
+                    document.getElementById("chartDate").getContext("2d"), {
+                    type: "line",
+                    data: {
+                        labels: dates.map((d) => {
+                            const dt = new Date(d);
+                            return dt.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+                        }),
+                        datasets: [
+                            { label: "Chat WA",     data: dates.map((d) => byDate[d]?.wa      || 0), borderColor: COLORS.wa,      backgroundColor: COLORS.wa + "33",      fill: true, tension: 0.3, pointRadius: 3 },
+                            { label: "Buka Produk", data: dates.map((d) => byDate[d]?.product || 0), borderColor: COLORS.product, backgroundColor: COLORS.product + "33", fill: true, tension: 0.3, pointRadius: 3 },
+                        ],
+                    },
+                    options: {
+                        responsive: true, plugins: { legend: { position: "bottom", labels: { font: { size: 11 }, padding: 14, boxWidth: 12 } } },
+                        scales: {
+                            x: { ticks: { font: { size: 10 } }, grid: { color: "#f5f5f5" } },
+                            y: { ticks: { precision: 0, font: { size: 11 } }, grid: { color: "#f5f5f5" } },
+                        },
+                    },
+                });
+            }
+
             // ── Load ──────────────────────────────────────────────────
             async function loadDashboard() {
                 if (
@@ -1030,10 +1199,12 @@
                 showTableState("⏳", "Memuat data...");
                 document.getElementById("updatedAt").textContent = "";
                 document.getElementById("chartsGrid").style.display = "none";
+                document.getElementById("timeChartsWrap").style.display = "none";
 
-                const [csvProducts, sheetsData] = await Promise.all([
+                const [csvProducts, sheetsData, events] = await Promise.all([
                     fetchProductsCSV(),
                     fetchTrackerCSV(),
+                    fetchEventsCSV(),
                 ]);
 
                 if (sheetsData === null) {
@@ -1131,6 +1302,13 @@
                     document.getElementById("chartsGrid").style.display =
                         "grid";
                     setTimeout(() => drawCharts(allRows), 50);
+                }
+
+                if (events.length > 0) {
+                    document.getElementById("timeChartsWrap").style.display = "block";
+                    document.getElementById("eventCount").textContent =
+                        `${events.length} event tercatat`;
+                    setTimeout(() => drawTimeCharts(events), 80);
                 }
 
                 renderTable();
