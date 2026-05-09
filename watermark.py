@@ -113,63 +113,61 @@ def watermark_image(path: Path) -> Path:
     return jpg_path
 
 
-def ffmpeg_pos_expr() -> str:
+def _make_watermark_png(out: Path) -> None:
+    """Buat PNG transparan berisi teks watermark (pakai Pillow, bukan ffmpeg freetype)."""
+    font = get_font(FONT_SIZE)
+    pad  = 12
+
+    dummy_draw = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    bbox = dummy_draw.textbbox((0, 0), WATERMARK_TEXT, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+    img  = Image.new("RGBA", (tw + pad * 2, th + pad * 2), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.text((pad + 2, pad + 2), WATERMARK_TEXT, font=font,
+              fill=(0, 0, 0, min(OPACITY // 2, 255)))
+    draw.text((pad, pad), WATERMARK_TEXT, font=font,
+              fill=(*TEXT_COLOR, OPACITY))
+    img.save(out, "PNG")
+
+
+def _overlay_expr() -> str:
+    """Posisi overlay ffmpeg berdasarkan POSITION."""
     m = MARGIN
     return {
         "top-left":     f"x={m}:y={m}",
-        "top-right":    f"x=w-tw-{m}:y={m}",
-        "bottom-left":  f"x={m}:y=h-th-{m}",
-        "bottom-right": f"x=w-tw-{m}:y=h-th-{m}",
-        "center":       f"x=(w-tw)/2:y=(h-th)/2",
-    }.get(POSITION, f"x=w-tw-{m}:y=h-th-{m}")
-
-
-def find_system_font() -> str:
-    candidates = [
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/Library/Fonts/Arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "C:/Windows/Fonts/arial.ttf",
-    ]
-    for f in candidates:
-        if os.path.exists(f):
-            return f
-    return ""
+        "top-right":    "x=W-w-{m}:y={m}".format(m=m),
+        "bottom-left":  f"x={m}:y=H-h-{m}",
+        "bottom-right": f"x=W-w-{m}:y=H-h-{m}",
+        "center":       "x=(W-w)/2:y=(H-h)/2",
+    }.get(POSITION, "x=(W-w)/2:y=(H-h)/2")
 
 
 def watermark_video(path: Path) -> None:
-    tmp = path.with_suffix(".wm_tmp" + path.suffix)
-    text = WATERMARK_TEXT.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
-    alpha = f"{OPACITY / 255:.2f}"
-    shadow_alpha = f"{OPACITY / 255 / 2:.2f}"
-
-    drawtext = (
-        f"drawtext="
-        f"text='{text}':"
-        f"fontsize={FONT_SIZE}:"
-        f"fontcolor=white@{alpha}:"
-        f"{ffmpeg_pos_expr()}:"
-        f"shadowcolor=black@{shadow_alpha}:shadowx=2:shadowy=2"
-    )
-    font_path = find_system_font()
-    if font_path:
-        drawtext = f"fontfile='{font_path}':" + drawtext
-
-    cmd = [
-        "ffmpeg", "-i", str(path),
-        "-vf", drawtext,
-        "-c:a", "copy",
-        "-crf", "23",
-        "-preset", "fast",
-        "-loglevel", "error",
-        "-y", str(tmp),
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
+    """Tambah watermark ke video menggunakan ffmpeg overlay (tidak butuh freetype)."""
+    wm_png = path.with_name("__wm_overlay.png")
+    tmp    = path.with_suffix(".wm_tmp" + path.suffix)
+    try:
+        _make_watermark_png(wm_png)
+        cmd = [
+            "ffmpeg",
+            "-i", str(path),
+            "-i", str(wm_png),
+            "-filter_complex", f"overlay={_overlay_expr()}",
+            "-c:a", "copy",
+            "-crf", "23",
+            "-preset", "fast",
+            "-loglevel", "error",
+            "-y", str(tmp),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            msg = proc.stderr.strip().splitlines()
+            raise RuntimeError(msg[-1] if msg else "ffmpeg error")
+        os.replace(tmp, path)
+    finally:
+        wm_png.unlink(missing_ok=True)
         tmp.unlink(missing_ok=True)
-        msg = proc.stderr.strip().splitlines()
-        raise RuntimeError(msg[-1] if msg else "ffmpeg error")
-    os.replace(tmp, path)
 
 
 # ── Rename sequential ─────────────────────────────────────────
