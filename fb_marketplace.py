@@ -241,6 +241,7 @@ def create_listing(page, product: dict, dry_run: bool = False) -> bool:
 
     parts = [desc] if desc else []
     parts.append("Kondisi: Bekas (terawat)")
+    parts.append("Hubungi via WhatsApp: wa.me/6282265135379")
     full_desc = "\n\n".join(parts)
 
     images = get_images(no)
