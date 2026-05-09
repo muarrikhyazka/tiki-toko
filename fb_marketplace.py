@@ -172,17 +172,18 @@ def ensure_logged_in(page, context):
             email_field.wait_for(state="visible", timeout=8000)
             email_field.click()
             _delay(0.3, 0.6)
-            email_field.fill(FB_EMAIL)
+            email_field.press_sequentially(FB_EMAIL, delay=80)
             _delay(0.5, 1)
 
             pass_field = page.locator('input[name="pass"]')
             pass_field.wait_for(state="visible", timeout=5000)
             pass_field.click()
             _delay(0.3, 0.6)
-            pass_field.fill(FB_PASSWORD)
+            pass_field.press_sequentially(FB_PASSWORD, delay=80)
             _delay(0.5, 1)
 
-            page.locator('button[name="login"]').click()
+            # Tombol login di FB adalah div[role="button"], bukan <button>
+            page.locator('[aria-label="Log in"]').click()
             _delay(5, 8)
 
             # Verifikasi berhasil login: tombol Login sudah hilang
