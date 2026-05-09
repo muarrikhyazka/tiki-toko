@@ -1154,12 +1154,9 @@
                     )
                 )
                     return;
-                try {
-                    await fetch(`${APPS_SCRIPT_URL}?action=reset`);
-                    await loadDashboard();
-                } catch (err) {
-                    alert("Gagal reset: " + err.message);
-                }
+                fetch(`${APPS_SCRIPT_URL}?action=reset`, { mode: "no-cors" }).catch(() => {});
+                await new Promise((r) => setTimeout(r, 2000));
+                await loadDashboard();
             }
         </script>
     </body>
