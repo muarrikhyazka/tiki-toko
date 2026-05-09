@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Dashboard — Tiki Toko</title>
+        <title>Dashboard - Tiki Toko</title>
         <link
             rel="icon"
             href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>"
@@ -582,7 +582,7 @@
 
                 <div class="note">
                     ✅ Data tracking tersimpan di
-                    <strong>Google Sheets</strong> — klik dari semua pengunjung
+                    <strong>Google Sheets</strong> - klik dari semua pengunjung
                     dan perangkat terekam secara real-time.
                 </div>
             </div>
@@ -746,7 +746,7 @@
             const formatPrice = (p) => "Rp " + p.toLocaleString("id-ID");
 
             function formatDate(iso) {
-                if (!iso) return "—";
+                if (!iso) return "-";
                 return new Date(iso).toLocaleString("id-ID", {
                     day: "numeric",
                     month: "short",
@@ -862,7 +862,7 @@
                         (r, i) => `
         <tr class="${r.sold ? "row-sold" : ""}">
           <td class="td-rank">${i + 1}</td>
-          <td class="td-id">${r.id || "—"}</td>
+          <td class="td-id">${r.id || "-"}</td>
           <td>
             <div class="td-name">
               ${r.name}
@@ -1103,7 +1103,7 @@
                 const topName =
                     topRow && topRow.waClicks + topRow.productClicks > 0
                         ? topRow.name
-                        : "—";
+                        : "-";
 
                 document.getElementById("summary").innerHTML = `
         <div class="stat-card">
