@@ -139,6 +139,7 @@
                 const iDesc = col("deskripsi");
                 const iLink = col("link");
                 const iPrice = col("harga");
+                const iDiscount = col("harga diskon");
 
                 return rows
                     .slice(2)
@@ -155,6 +156,7 @@
                             brand: (r[iBrand] || "").trim(),
                             description: (r[iDesc] || "").trim(),
                             price: parsePrice(r[iPrice]),
+                            discountPrice: iDiscount >= 0 ? parsePrice(r[iDiscount]) : 0,
                             ecommerceLinks: parseLinks(r[iLink]),
                             imageFolder: `images/${no}`,
                         };
@@ -163,6 +165,15 @@
 
             const parsePrice = (s) =>
                 parseInt((s || "").replace(/[^0-9]/g, "")) || 0;
+
+            function priceHTML(p) {
+                if (p.discountPrice > 0) {
+                    return `<span class="price-original">${formatPrice(p.price)}</span>${formatPrice(p.discountPrice)}`;
+                }
+                return formatPrice(p.price);
+            }
+
+            const effectivePrice = (p) => p.discountPrice > 0 ? p.discountPrice : p.price;
             const parseLinks = (s) =>
                 (s || "")
                     .split("\n")
@@ -174,7 +185,7 @@
 
             function buildWaLink(p) {
                 const text = encodeURIComponent(
-                    `Halo, saya tertarik dengan *${p.name}* (${formatPrice(p.price)}). Apakah masih tersedia?`,
+                    `Halo, saya tertarik dengan *${p.name}* (${formatPrice(effectivePrice(p))}). Apakah masih tersedia?`,
                 );
                 return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
             }
@@ -427,7 +438,7 @@
             <div class="card-body">
               <div class="card-name">${p.name}</div>
               ${brand}
-              <div class="card-price">${formatPrice(p.price)}</div>
+              <div class="card-price">${priceHTML(p)}</div>
               <div class="card-desc">${desc}</div>
               ${buildCardEcomLinks(p)}
               ${waBtn}
@@ -452,9 +463,9 @@
                         p.description.toLowerCase().includes(q),
                 );
                 if (sort === "price-asc")
-                    list.sort((a, b) => a.price - b.price);
+                    list.sort((a, b) => effectivePrice(a) - effectivePrice(b));
                 if (sort === "price-desc")
-                    list.sort((a, b) => b.price - a.price);
+                    list.sort((a, b) => effectivePrice(b) - effectivePrice(a));
                 return list;
             }
 
@@ -489,7 +500,7 @@
         <div class="modal-body">
           <div class="modal-name">${p.name}</div>
           ${brand}
-          <div class="modal-price">${formatPrice(p.price)}</div>
+          <div class="modal-price">${priceHTML(p)}</div>
           ${buildModalEcomLinks(p)}
           <div class="modal-desc">${desc}</div>
           <div class="modal-actions">
