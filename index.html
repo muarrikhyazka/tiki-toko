@@ -234,8 +234,7 @@
 
             // ── Carousel ──────────────────────────────────────────────
             // Coba muat 1.jpg s/d MAX_IMG.jpg; gambar yang 404 dihapus otomatis.
-            const cdnImg = (path, w) =>
-                `/_vercel/image?url=${encodeURIComponent("/" + path)}&w=${w}&q=82`;
+            const cdnImg = (path, w) => "/" + path;
 
             function buildCarousel(p, prefix) {
                 let slides;
