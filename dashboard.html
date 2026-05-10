@@ -252,6 +252,11 @@
                 overflow: hidden;
             }
 
+            #tableContainer {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
             .table-head {
                 display: flex;
                 align-items: center;
@@ -324,6 +329,7 @@
 
             table {
                 width: 100%;
+                min-width: 580px;
                 border-collapse: collapse;
             }
 
@@ -531,13 +537,6 @@
                 .dash-header {
                     flex-wrap: wrap;
                 }
-                /* hide ID and Terakhir on mobile */
-                thead th:nth-child(2),
-                tbody td:nth-child(2),
-                thead th:last-child,
-                tbody td:last-child {
-                    display: none;
-                }
             }
         </style>
     </head>
@@ -596,7 +595,7 @@
                         <span class="time-charts-sub" id="eventCount"></span>
                     </div>
                     <div class="time-charts-grid">
-                        <div class="chart-card chart-card-wide">
+                        <div class="chart-card">
                             <h3>Per Jam (0–23)</h3>
                             <canvas id="chartHour"></canvas>
                         </div>
