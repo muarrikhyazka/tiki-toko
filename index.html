@@ -234,17 +234,22 @@
 
             // ── Carousel ──────────────────────────────────────────────
             // Coba muat 1.jpg s/d MAX_IMG.jpg; gambar yang 404 dihapus otomatis.
+            const cdnImg = (path, w) =>
+                `/_vercel/image?url=${encodeURIComponent("/" + path)}&w=${w}&q=82`;
+
             function buildCarousel(p, prefix) {
                 let slides;
                 if (prefix === "card") {
                     // Hanya muat gambar pertama di grid — hemat request (1 per produk, bukan 20)
-                    slides = `<img class="carousel-slide" src="${p.imageFolder}/1.jpg"
+                    slides = `<img class="carousel-slide" src="${cdnImg(p.imageFolder + "/1.jpg", 400)}"
+             data-orig="${p.imageFolder}/1.jpg"
              alt="${p.name}" loading="lazy" onerror="imgErr(this)">`;
                 } else {
                     slides = Array.from(
                         { length: MAX_IMG },
                         (_, i) =>
-                            `<img class="carousel-slide" src="${p.imageFolder}/${i + 1}.jpg"
+                            `<img class="carousel-slide" src="${cdnImg(p.imageFolder + "/" + (i + 1) + ".jpg", 900)}"
+             data-orig="${p.imageFolder}/${i + 1}.jpg"
              alt="${p.name}" loading="lazy" onerror="imgErr(this)">`,
                     ).join("");
                 }
@@ -269,7 +274,8 @@
                 // Try mp4 fallback before removing
                 if (!img.dataset.mp4tried) {
                     img.dataset.mp4tried = "1";
-                    const mp4src = (img.getAttribute("src") || "").replace(/\.[^.]+$/, ".mp4");
+                    const origPath = img.dataset.orig || img.getAttribute("src") || "";
+                    const mp4src = origPath.replace(/\.[^.]+$/, ".mp4");
                     const video = document.createElement("video");
                     video.className = "carousel-slide";
                     video.muted = true;
