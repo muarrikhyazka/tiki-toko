@@ -466,6 +466,12 @@
                     list.sort((a, b) => effectivePrice(a) - effectivePrice(b));
                 if (sort === "price-desc")
                     list.sort((a, b) => effectivePrice(b) - effectivePrice(a));
+                // Selalu tampilkan yang belum terjual di depan
+                list.sort((a, b) => {
+                    const aSold = soldIds.has(a.id) ? 1 : 0;
+                    const bSold = soldIds.has(b.id) ? 1 : 0;
+                    return aSold - bSold;
+                });
                 return list;
             }
 
